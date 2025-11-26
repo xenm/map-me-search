@@ -81,7 +81,7 @@ async def search_places(city_name: str, preferences: str):
     runner = InMemoryRunner(agent=agent)
     print("✅ Runner created.")
     
-    # Create search prompt
+    # Create a search prompt
     prompt = (
         f"Find nearby places in {city_name} for someone who likes {preferences}. "
         f"Provide specific recommendations with names, brief descriptions, and why they would enjoy them."
@@ -113,7 +113,7 @@ def print_response(response):
 
 
 def get_user_input():
-    """Get city name and preferences from user"""
+    """Get city name and preferences from the user"""
     print("\n" + "=" * 60)
     print("🗺️  AI-POWERED NEARBY PLACES SEARCH")
     print("=" * 60)
