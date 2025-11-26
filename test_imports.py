@@ -50,6 +50,17 @@ try:
     from google.genai import types
     print("   ✅ GenAI types imported successfully\n")
     
+    print("9️⃣  Testing Session Management imports...")
+    from google.adk.sessions import DatabaseSessionService, InMemorySessionService
+    from google.adk.apps.app import App, EventsCompactionConfig
+    print("   ✅ Session services and App imported successfully\n")
+    
+    print("🔟 Testing Memory Management imports...")
+    from google.adk.memory import InMemoryMemoryService
+    from google.adk.tools import load_memory, preload_memory
+    from google.adk.tools.tool_context import ToolContext
+    print("   ✅ Memory services and tools imported successfully\n")
+    
     print("=" * 60)
     print("✅ ALL IMPORTS SUCCESSFUL!")
     print("=" * 60)

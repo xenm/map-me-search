@@ -8,10 +8,15 @@ import asyncio
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent, SequentialAgent
 from google.adk.models.google_llm import Gemini
-from google.adk.runners import InMemoryRunner
-from google.adk.tools import google_search, AgentTool, FunctionTool
+from google.adk.runners import Runner
+from google.adk.sessions import DatabaseSessionService
+from google.adk.memory import InMemoryMemoryService
+from google.adk.tools import google_search, AgentTool, FunctionTool, load_memory, preload_memory
+from google.adk.tools.tool_context import ToolContext
 from google.adk.code_executors import BuiltInCodeExecutor
+from google.adk.apps.app import App, EventsCompactionConfig
 from google.genai import types
+from typing import Any, Dict
 
 
 def load_environment():
@@ -102,9 +107,60 @@ def get_place_category_boost(category: str, preferences: str) -> dict:
     return {"status": "success", "boost": 0, "reason": "No special match"}
 
 
+# Session State Management Tools (Day 3 - Part 1)
+
+def save_user_preferences(tool_context: ToolContext, city: str, preferences: str) -> Dict[str, Any]:
+    """Save user's city and preferences to session state for reuse across conversation.
+    
+    Args:
+        tool_context: Context providing access to session state
+        city: City name the user is searching in
+        preferences: User's stated preferences
+        
+    Returns:
+        Dictionary with status.
+        Success: {"status": "success"}
+    """
+    tool_context.state["user:last_city"] = city
+    tool_context.state["user:last_preferences"] = preferences
+    return {"status": "success", "message": f"Saved preferences for {city}"}
+
+
+def retrieve_user_preferences(tool_context: ToolContext) -> Dict[str, Any]:
+    """Retrieve user's previously saved city and preferences from session state.
+    
+    Args:
+        tool_context: Context providing access to session state
+        
+    Returns:
+        Dictionary with status and data.
+        Success: {"status": "success", "city": "...", "preferences": "..."}
+    """
+    city = tool_context.state.get("user:last_city", "Not set")
+    preferences = tool_context.state.get("user:last_preferences", "Not set")
+    
+    return {
+        "status": "success",
+        "city": city,
+        "preferences": preferences
+    }
+
+
+# Callback for automatic memory storage (Day 3 - Part 2)
+async def auto_save_to_memory(callback_context):
+    """Automatically save session to memory after each agent turn."""
+    try:
+        await callback_context._invocation_context.memory_service.add_session_to_memory(
+            callback_context._invocation_context.session
+        )
+        print("💾 Session automatically saved to memory")
+    except Exception as e:
+        print(f"⚠️ Memory save failed: {e}")
+
+
 def initialize_multi_agent_system():
-    """Initialize and configure the enhanced multi-agent system with custom tools"""
-    print("\n🔧 Initializing Enhanced Multi-Agent System...")
+    """Initialize and configure the enhanced multi-agent system with Sessions and Memory"""
+    print("\n🔧 Initializing Enhanced Multi-Agent System with Sessions & Memory...")
     
     # Configure retry options for API calls
     retry_config = types.HttpRetryOptions(
@@ -229,16 +285,56 @@ End with a friendly summary of the recommendations.""",
     print("📋 Pipeline: ResearchAgent → FilterAgent (with tools) → FormatterAgent")
     print("🔧 Custom Tools: calculate_distance_score, get_place_category_boost")
     print("🤖 Agent Tools: CalculationAgent (code executor)")
+    print("💾 Session State: save_user_preferences, retrieve_user_preferences")
+    print("🧠 Memory: preload_memory for long-term recall")
     return root_agent
 
 
-async def search_places(city_name: str, preferences: str):
+def initialize_services():
+    """Initialize Session and Memory services with persistence."""
+    print("\n🗄️ Initializing Services...")
+    
+    # DatabaseSessionService - Persistent sessions across restarts
+    db_url = "sqlite:///places_search_sessions.db"
+    session_service = DatabaseSessionService(db_url=db_url)
+    print(f"✅ DatabaseSessionService initialized: {db_url}")
+    
+    # InMemoryMemoryService - Long-term knowledge storage
+    memory_service = InMemoryMemoryService()
+    print("✅ InMemoryMemoryService initialized")
+    
+    return session_service, memory_service
+
+
+def create_app_with_compaction(root_agent):
+    """Create App with Events Compaction for context optimization."""
+    print("\n📦 Creating App with Context Compaction...")
+    
+    app = App(
+        name="PlacesSearchApp",
+        root_agent=root_agent,
+        # Context Compaction: Automatically summarize conversation history
+        events_compaction_config=EventsCompactionConfig(
+            compaction_interval=4,  # Compact every 4 turns
+            overlap_size=1,  # Keep 1 turn for context
+        ),
+    )
+    
+    print("✅ App created with EventsCompactionConfig")
+    print("   - Compaction interval: 4 turns")
+    print("   - Overlap size: 1 turn")
+    
+    return app
+
+
+async def search_places(city_name: str, preferences: str, session_id: str = "default"):
     """
-    Search for nearby places based on city and preferences
+    Search for nearby places based on city and preferences with session persistence
     
     Args:
         city_name: The name of the city to search in
         preferences: What the user likes (e.g., "coffee shops", "museums", "parks")
+        session_id: Session identifier for conversation continuity
     """
     print(f"\n🔍 Searching for places in {city_name} based on: '{preferences}'")
     print("=" * 60)
@@ -246,9 +342,36 @@ async def search_places(city_name: str, preferences: str):
     # Initialize multi-agent system
     agent = initialize_multi_agent_system()
     
-    # Create runner
-    runner = InMemoryRunner(agent=agent)
-    print("✅ Runner created.")
+    # Initialize Session and Memory services
+    session_service, memory_service = initialize_services()
+    
+    # Create App with context compaction
+    app = create_app_with_compaction(agent)
+    
+    # Create Runner with all services
+    runner = Runner(
+        app=app,
+        session_service=session_service,
+        memory_service=memory_service
+    )
+    
+    print(f"\n📱 Session ID: {session_id}")
+    
+    # Create or retrieve session
+    try:
+        session = await session_service.create_session(
+            app_name=app.name,
+            user_id="default_user",
+            session_id=session_id
+        )
+        print("✅ New session created")
+    except:
+        session = await session_service.get_session(
+            app_name=app.name,
+            user_id="default_user",
+            session_id=session_id
+        )
+        print("✅ Existing session retrieved")
     
     # Create a search prompt
     prompt = (
@@ -259,26 +382,38 @@ async def search_places(city_name: str, preferences: str):
     print(f"\n📝 Prompt: {prompt}\n")
     print("🤖 AI Agent is working...\n")
     
-    # Run the agent
-    response = await runner.run_debug(prompt)
+    # Convert to ADK Content format
+    query_content = types.Content(role="user", parts=[types.Part(text=prompt)])
     
-    return response
+    # Run the agent asynchronously and collect response
+    final_text = ""
+    async for event in runner.run_async(
+        user_id="default_user",
+        session_id=session.id,
+        new_message=query_content
+    ):
+        if event.is_final_response() and event.content and event.content.parts:
+            text = event.content.parts[0].text
+            if text and text != "None":
+                final_text = text
+    
+    # Save session to memory for long-term recall
+    try:
+        await memory_service.add_session_to_memory(session)
+        print("\n💾 Session saved to memory for future recall")
+    except Exception as e:
+        print(f"\n⚠️ Memory save failed: {e}")
+    
+    return final_text
 
 
 def print_response(response):
     """Print the agent's response in a formatted way"""
     print("\n" + "=" * 60)
-    print("📍 SEARCH RESULTS")
+    print("🎯 FINAL RECOMMENDATIONS")
     print("=" * 60)
-    
-    if hasattr(response, 'text'):
-        print(response.text)
-    elif hasattr(response, 'content'):
-        print(response.content)
-    else:
-        print(response)
-    
-    print("\n" + "=" * 60)
+    print(response)
+    print("=" * 60)
 
 
 def get_user_input():
