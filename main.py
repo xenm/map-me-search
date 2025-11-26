@@ -226,7 +226,7 @@ Generate Python code that calculates weighted scores based on the provided data.
             retry_options=retry_config
         ),
         instruction="""
-You are a filtering and ranking specialist. Review the research findings: {research_findings}
+You are a filtering and ranking specialist. Review the research findings from the previous agent.
 
 Your task:
 1. For each place, use get_place_category_boost() to calculate category relevance
@@ -244,11 +244,15 @@ Output a curated list with:
         tools=[
             FunctionTool(func=calculate_distance_score),
             FunctionTool(func=get_place_category_boost),
+            FunctionTool(func=save_user_preferences),
+            FunctionTool(func=retrieve_user_preferences),
             AgentTool(agent=calculation_agent),  # Using agent as a tool!
+            preload_memory,  # Memory retrieval tool
         ],
         output_key="filtered_results",
+        after_agent_callback=auto_save_to_memory,  # Auto-save to memory
     )
-    print("✅ FilterAgent created (with custom FunctionTools + AgentTool)")
+    print("✅ FilterAgent created (with custom FunctionTools + AgentTool + Memory)")
     
     # Agent 4: Formatter Agent - Creates beautiful final recommendations
     formatter_agent = LlmAgent(
@@ -258,7 +262,7 @@ Output a curated list with:
             retry_options=retry_config
         ),
         instruction="""
-You are a presentation specialist. Take the filtered results: {filtered_results}
+You are a presentation specialist. Review the filtered and scored places from the previous agent.
 
 Create a beautifully formatted recommendation guide with:
 

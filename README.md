@@ -37,6 +37,7 @@ python3 main.py
 | [SETUP.md](SETUP.md) | Detailed setup instructions |
 | [SESSION_MEMORY_GUIDE.md](SESSION_MEMORY_GUIDE.md) | **🧠 Day 3: Sessions & Memory guide** |
 | [DAY3_ENHANCEMENT_SUMMARY.md](DAY3_ENHANCEMENT_SUMMARY.md) | **Day 3: What's new** |
+| [BUGFIX_SUMMARY.md](BUGFIX_SUMMARY.md) | **🔧 Critical bug fixes** |
 | [ADVANCED_TOOLS.md](ADVANCED_TOOLS.md) | **Day 2: Advanced tools & patterns** |
 | [ENHANCEMENT_SUMMARY.md](ENHANCEMENT_SUMMARY.md) | **Day 2: Tools enhancement** |
 | [MULTI_AGENT_ARCHITECTURE.md](MULTI_AGENT_ARCHITECTURE.md) | Day 1: Multi-agent system design |
