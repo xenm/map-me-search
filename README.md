@@ -17,9 +17,10 @@ python3 main.py
 
 ## ✨ Features
 
-- 🤖 **AI-Powered**: Uses Google's Gemini 2.0 model for intelligent search
+- 🤖 **Multi-Agent System**: Uses specialized AI agents working as a team
 - 🔍 **Smart Search**: Leverages Google Search for real-time information
-- 🎯 **Personalized**: Finds places based on your specific preferences
+- 🎯 **Intelligent Filtering**: AI filters and ranks results by relevance
+- 🎨 **Beautiful Formatting**: Presentation specialist creates engaging output
 - 🔄 **Reliable**: Automatic retry logic for API calls
 - 📝 **User-Friendly**: Simple command-line interface
 
@@ -29,6 +30,8 @@ python3 main.py
 |----------|---------|
 | [QUICKSTART.md](QUICKSTART.md) | Get started in 3 steps |
 | [SETUP.md](SETUP.md) | Detailed setup instructions |
+| [MULTI_AGENT_ARCHITECTURE.md](MULTI_AGENT_ARCHITECTURE.md) | **Multi-agent system design** |
+| [examples/](examples/) | Multi-agent pattern examples |
 | [PROJECT_README.md](PROJECT_README.md) | Full project documentation |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture |
 | [COMMANDS.md](COMMANDS.md) | Command reference |
@@ -54,9 +57,22 @@ python3 main.py
 ## 🛠️ Tech Stack
 
 - **Framework**: Google Agent Development Kit (ADK)
-- **AI Model**: Gemini 2.0 Flash Exp
+- **Architecture**: Multi-Agent System (Sequential Pattern)
+- **AI Model**: Gemini 2.5 Flash
 - **Language**: Python 3.8+
 - **Tools**: Google Search integration
+
+### Multi-Agent Architecture
+
+```
+ResearchAgent (Google Search) 
+    ↓
+FilterAgent (Quality Control)
+    ↓
+FormatterAgent (Beautiful Output)
+```
+
+Learn more: [MULTI_AGENT_ARCHITECTURE.md](MULTI_AGENT_ARCHITECTURE.md)
 
 ## 📦 Installation
 

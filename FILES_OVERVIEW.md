@@ -163,6 +163,22 @@ cp .env.example .env
 
 ---
 
+### `MULTI_AGENT_ARCHITECTURE.md`
+**Purpose**: Multi-agent system design documentation  
+**Audience**: Developers learning about multi-agent patterns  
+**Contents**:
+- Why multi-agent vs single-agent
+- Specialized agent descriptions
+- Sequential workflow pattern
+- State management
+- Before/after comparison
+- Pattern selection guide
+- Future enhancements
+
+**Best for**: Understanding the multi-agent architecture
+
+---
+
 ### `COMMANDS.md`
 **Purpose**: Command reference guide  
 **Audience**: Users needing quick command lookup  

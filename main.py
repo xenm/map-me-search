@@ -6,7 +6,7 @@ Uses Google Agent Development Kit (ADK) to search for places based on user prefe
 import os
 import asyncio
 from dotenv import load_dotenv
-from google.adk.agents import Agent
+from google.adk.agents import Agent, SequentialAgent
 from google.adk.models.google_llm import Gemini
 from google.adk.runners import InMemoryRunner
 from google.adk.tools import google_search
@@ -29,9 +29,9 @@ def load_environment():
     return api_key
 
 
-def initialize_agent():
-    """Initialize and configure the AI agent"""
-    print("\n🔧 Initializing AI Agent...")
+def initialize_multi_agent_system():
+    """Initialize and configure the multi-agent system"""
+    print("\n🔧 Initializing Multi-Agent System...")
     
     # Configure retry options for API calls
     retry_config = types.HttpRetryOptions(
@@ -41,25 +41,83 @@ def initialize_agent():
         http_status_codes=[429, 500, 503, 504],  # Retry on these HTTP errors
     )
     
-    # Create the root agent with search capabilities
-    root_agent = Agent(
-        name="places_search_assistant",
+    # Agent 1: Research Agent - Searches for places using Google Search
+    research_agent = Agent(
+        name="ResearchAgent",
         model=Gemini(
             model="gemini-2.5-flash",
             retry_options=retry_config
         ),
-        description="An AI agent that searches for nearby places based on city and user preferences.",
-        instruction=(
-            "You are a helpful assistant specialized in finding nearby places. "
-            "When given a city name and user preferences (what they like), use Google Search to find "
-            "relevant nearby places, attractions, restaurants, or activities. "
-            "Provide detailed, helpful recommendations with specific names and brief descriptions. "
-            "Always use Google Search for current and accurate information."
-        ),
+        instruction="""
+You are a specialized research agent. Your only job is to use the google_search tool 
+to find relevant places, attractions, restaurants, and activities based on the city and preferences provided.
+
+Search for 5-7 specific places that match the user's interests. For each place, gather:
+- Name of the place
+- Type (restaurant, museum, park, etc.)
+- Brief description
+- Why it matches the preferences
+
+Present your findings as structured data with clear details for each place.""",
         tools=[google_search],
+        output_key="research_findings",  # Output stored in session state
+    )
+    print("✅ ResearchAgent created.")
+    
+    # Agent 2: Filter Agent - Analyzes and ranks the findings
+    filter_agent = Agent(
+        name="FilterAgent",
+        model=Gemini(
+            model="gemini-2.5-flash",
+            retry_options=retry_config
+        ),
+        instruction="""
+You are a filtering and ranking specialist. Review the research findings: {research_findings}
+
+Your task:
+1. Analyze each place found by the research agent
+2. Rate how well each matches the user's preferences (1-10)
+3. Remove any duplicates or irrelevant results
+4. Select the top 5 best matches
+5. Organize them by relevance (best matches first)
+
+Output a curated list with ratings and reasoning for each selection.""",
+        output_key="filtered_results",
+    )
+    print("✅ FilterAgent created.")
+    
+    # Agent 3: Formatter Agent - Creates beautiful final recommendations
+    formatter_agent = Agent(
+        name="FormatterAgent",
+        model=Gemini(
+            model="gemini-2.5-flash",
+            retry_options=retry_config
+        ),
+        instruction="""
+You are a presentation specialist. Take the filtered results: {filtered_results}
+
+Create a beautifully formatted recommendation guide with:
+
+📍 For each place:
+   • Name and type (bold)
+   • Clear description (2-3 sentences)
+   • Why it's perfect for the user's preferences
+   • A relevance score or badge (⭐)
+
+Make it engaging, easy to read, and helpful. Use emojis strategically. 
+End with a friendly summary of the recommendations.""",
+        output_key="final_recommendations",
+    )
+    print("✅ FormatterAgent created.")
+    
+    # Create Sequential Agent - Runs agents in order: Research → Filter → Format
+    root_agent = SequentialAgent(
+        name="PlacesSearchPipeline",
+        sub_agents=[research_agent, filter_agent, formatter_agent],
     )
     
-    print("✅ Root Agent defined.")
+    print("✅ Sequential Multi-Agent Pipeline created.")
+    print("\n📋 Pipeline: ResearchAgent → FilterAgent → FormatterAgent")
     return root_agent
 
 
@@ -74,8 +132,8 @@ async def search_places(city_name: str, preferences: str):
     print(f"\n🔍 Searching for places in {city_name} based on: '{preferences}'")
     print("=" * 60)
     
-    # Initialize agent
-    agent = initialize_agent()
+    # Initialize multi-agent system
+    agent = initialize_multi_agent_system()
     
     # Create runner
     runner = InMemoryRunner(agent=agent)

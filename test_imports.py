@@ -20,22 +20,29 @@ try:
     print("   ✅ python-dotenv imported successfully\n")
     
     print("2️⃣  Testing Google ADK Agent imports...")
-    from google.adk.agents import Agent, SequentialAgent, ParallelAgent, LoopAgent
-    print("   ✅ Agent classes imported successfully\n")
+    from google.adk.agents import Agent, SequentialAgent
+    print("   ✅ Agent and SequentialAgent imported successfully\n")
     
-    print("3️⃣  Testing Google ADK Model imports...")
+    print("3️⃣  Testing additional Agent patterns...")
+    try:
+        from google.adk.agents import ParallelAgent, LoopAgent
+        print("   ✅ ParallelAgent and LoopAgent imported (optional)\n")
+    except ImportError:
+        print("   ⚠️  ParallelAgent/LoopAgent not available (optional for basic usage)\n")
+    
+    print("4️⃣  Testing Google ADK Model imports...")
     from google.adk.models.google_llm import Gemini
     print("   ✅ Gemini model imported successfully\n")
     
-    print("4️⃣  Testing Google ADK Runner imports...")
+    print("5️⃣  Testing Google ADK Runner imports...")
     from google.adk.runners import InMemoryRunner
     print("   ✅ InMemoryRunner imported successfully\n")
     
-    print("5️⃣  Testing Google ADK Tools imports...")
+    print("6️⃣  Testing Google ADK Tools imports...")
     from google.adk.tools import AgentTool, FunctionTool, google_search
     print("   ✅ Tools imported successfully\n")
     
-    print("6️⃣  Testing Google GenAI types...")
+    print("7️⃣  Testing Google GenAI types...")
     from google.genai import types
     print("   ✅ GenAI types imported successfully\n")
     
