@@ -33,8 +33,34 @@ echo ""
 
 # Install dependencies
 echo "3️⃣  Installing dependencies..."
-pip3 install -r requirements.txt
-echo "   ✅ Dependencies installed"
+if command -v pip3 &> /dev/null; then
+    # Try direct installation first
+    if pip3 install -r requirements.txt &> /dev/null; then
+        echo "   ✅ Dependencies installed directly"
+    else
+        echo "   ⚠️  Direct installation failed, using virtual environment..."
+        
+        # Create virtual environment if it doesn't exist
+        if [ ! -d "venv" ]; then
+            echo "   📦 Creating virtual environment..."
+            python3 -m venv venv
+        fi
+        
+        # Activate virtual environment and install
+        echo "   📦 Installing dependencies in virtual environment..."
+        source venv/bin/activate
+        pip install -r requirements.txt
+        echo "   ✅ Dependencies installed in virtual environment"
+        echo ""
+        echo "   📝 Note: To run the app, use:"
+        echo "      source venv/bin/activate"
+        echo "      python main.py"
+        echo ""
+    fi
+else
+    echo "   ❌ pip3 not available"
+    exit 1
+fi
 echo ""
 
 # Create .env file if it doesn't exist

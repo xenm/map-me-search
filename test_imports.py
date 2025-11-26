@@ -5,6 +5,15 @@ Run this before running the main application
 
 print("🧪 Testing Google ADK imports...\n")
 
+# Check if we're in a virtual environment
+import sys
+if 'venv' in sys.executable or 'site-packages' in sys.executable:
+    print("✅ Running in virtual environment")
+else:
+    print("⚠️  Not in virtual environment - may need to activate venv")
+    print("   Try: source venv/bin/activate")
+    print()
+
 try:
     print("1️⃣  Testing dotenv import...")
     from dotenv import load_dotenv
