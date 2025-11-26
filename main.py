@@ -45,7 +45,7 @@ def initialize_agent():
     root_agent = Agent(
         name="places_search_assistant",
         model=Gemini(
-            model="gemini-2.0-flash-exp",
+            model="gemini-2.5-flash",
             retry_options=retry_config
         ),
         description="An AI agent that searches for nearby places based on city and user preferences.",
