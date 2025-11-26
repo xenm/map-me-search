@@ -17,9 +17,11 @@ python3 main.py
 
 ## ✨ Features
 
-- 🤖 **Multi-Agent System**: Uses specialized AI agents working as a team
+- 🤖 **Advanced Multi-Agent System**: Specialized AI agents with custom tools
 - 🔍 **Smart Search**: Leverages Google Search for real-time information
-- 🎯 **Intelligent Filtering**: AI filters and ranks results by relevance
+- 🎯 **Intelligent Scoring**: Custom tools calculate distance and category relevance
+- 💻 **Code Execution**: Reliable mathematical calculations using BuiltInCodeExecutor
+- 🔧 **Custom Tools**: FunctionTools and AgentTools for sophisticated processing
 - 🎨 **Beautiful Formatting**: Presentation specialist creates engaging output
 - 🔄 **Reliable**: Automatic retry logic for API calls
 - 📝 **User-Friendly**: Simple command-line interface
@@ -30,7 +32,9 @@ python3 main.py
 |----------|---------|
 | [QUICKSTART.md](QUICKSTART.md) | Get started in 3 steps |
 | [SETUP.md](SETUP.md) | Detailed setup instructions |
-| [MULTI_AGENT_ARCHITECTURE.md](MULTI_AGENT_ARCHITECTURE.md) | **Multi-agent system design** |
+| [ADVANCED_TOOLS.md](ADVANCED_TOOLS.md) | **🔥 Advanced tools & patterns guide** |
+| [ENHANCEMENT_SUMMARY.md](ENHANCEMENT_SUMMARY.md) | **What's new in advanced tools** |
+| [MULTI_AGENT_ARCHITECTURE.md](MULTI_AGENT_ARCHITECTURE.md) | Multi-agent system design |
 | [examples/](examples/) | Multi-agent pattern examples |
 | [PROJECT_README.md](PROJECT_README.md) | Full project documentation |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture |
@@ -60,19 +64,27 @@ python3 main.py
 - **Architecture**: Multi-Agent System (Sequential Pattern)
 - **AI Model**: Gemini 2.5 Flash
 - **Language**: Python 3.8+
-- **Tools**: Google Search integration
+- **Tools**: Google Search, Custom FunctionTools, AgentTools
+- **Execution**: BuiltInCodeExecutor for reliable calculations
 
-### Multi-Agent Architecture
+### Enhanced Multi-Agent Architecture
 
 ```
-ResearchAgent (Google Search) 
+ResearchAgent (Google Search)
     ↓
-FilterAgent (Quality Control)
+FilterAgent (Advanced Scoring)
+    ├─ calculate_distance_score (FunctionTool)
+    ├─ get_place_category_boost (FunctionTool)
+    └─ CalculationAgent (AgentTool + Code Executor)
     ↓
 FormatterAgent (Beautiful Output)
 ```
 
-Learn more: [MULTI_AGENT_ARCHITECTURE.md](MULTI_AGENT_ARCHITECTURE.md)
+**New**: Custom tools for distance scoring, category matching, and code-based calculations!
+
+Learn more: 
+- [ADVANCED_TOOLS.md](ADVANCED_TOOLS.md) - Tool guide
+- [MULTI_AGENT_ARCHITECTURE.md](MULTI_AGENT_ARCHITECTURE.md) - Architecture
 
 ## 📦 Installation
 

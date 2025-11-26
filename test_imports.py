@@ -20,8 +20,8 @@ try:
     print("   ✅ python-dotenv imported successfully\n")
     
     print("2️⃣  Testing Google ADK Agent imports...")
-    from google.adk.agents import Agent, SequentialAgent
-    print("   ✅ Agent and SequentialAgent imported successfully\n")
+    from google.adk.agents import LlmAgent, SequentialAgent
+    print("   ✅ LlmAgent and SequentialAgent imported successfully\n")
     
     print("3️⃣  Testing additional Agent patterns...")
     try:
@@ -39,10 +39,14 @@ try:
     print("   ✅ InMemoryRunner imported successfully\n")
     
     print("6️⃣  Testing Google ADK Tools imports...")
-    from google.adk.tools import AgentTool, FunctionTool, google_search
-    print("   ✅ Tools imported successfully\n")
+    from google.adk.tools import google_search, AgentTool, FunctionTool
+    print("   ✅ google_search, AgentTool, FunctionTool imported successfully\n")
     
-    print("7️⃣  Testing Google GenAI types...")
+    print("7️⃣  Testing Code Executor imports...")
+    from google.adk.code_executors import BuiltInCodeExecutor
+    print("   ✅ BuiltInCodeExecutor imported successfully\n")
+    
+    print("8️⃣  Testing Google GenAI types...")
     from google.genai import types
     print("   ✅ GenAI types imported successfully\n")
     
