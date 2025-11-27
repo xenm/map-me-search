@@ -79,7 +79,7 @@ class MetricsTrackingPlugin(BasePlugin):
             del self.agent_start_times[agent_id]
     
     async def before_model_callback(
-        self, *, callback_context: CallbackContext, llm_request: LlmRequest
+        self, *, callback_context: CallbackContext = None, llm_request: Any = None, **kwargs
     ) -> None:
         """Track LLM request initiation."""
         self.llm_request_count += 1
@@ -93,9 +93,11 @@ class MetricsTrackingPlugin(BasePlugin):
     async def after_model_callback(
         self, 
         *, 
-        callback_context: CallbackContext, 
-        llm_request: LlmRequest,
-        llm_response: LlmResponse
+        callback_context: CallbackContext = None,
+        llm_request: Any = None,
+        llm_response: Any = None,
+        model_response_event: Any = None,
+        **kwargs
     ) -> None:
         """Track LLM response and token usage."""
         request_id = f"llm_{self.llm_request_count}"
@@ -107,38 +109,45 @@ class MetricsTrackingPlugin(BasePlugin):
             duration = 0
         
         # Track token usage if available
-        if hasattr(llm_response, 'usage_metadata'):
-            input_tokens = getattr(llm_response.usage_metadata, 'prompt_token_count', 0)
-            output_tokens = getattr(llm_response.usage_metadata, 'candidates_token_count', 0)
-            
-            self.total_input_tokens += input_tokens
-            self.total_output_tokens += output_tokens
-            
-            logging.info(
-                f"[MetricsPlugin] 🧠 LLM response received "
-                f"(Duration: {duration:.2f}s, Input tokens: {input_tokens}, "
-                f"Output tokens: {output_tokens})"
-            )
+        if llm_response and hasattr(llm_response, 'usage_metadata'):
+            usage_metadata = getattr(llm_response, 'usage_metadata', None)
+            if usage_metadata:
+                input_tokens = getattr(usage_metadata, 'prompt_token_count', 0)
+                output_tokens = getattr(usage_metadata, 'candidates_token_count', 0)
+                
+                self.total_input_tokens += input_tokens
+                self.total_output_tokens += output_tokens
+                
+                logging.info(
+                    f"[MetricsPlugin] 🧠 LLM response received "
+                    f"(Duration: {duration:.2f}s, Input tokens: {input_tokens}, "
+                    f"Output tokens: {output_tokens})"
+                )
+            else:
+                logging.info(
+                    f"[MetricsPlugin] 🧠 LLM response received (Duration: {duration:.2f}s)"
+                )
         else:
             logging.info(
                 f"[MetricsPlugin] 🧠 LLM response received (Duration: {duration:.2f}s)"
             )
     
     async def before_tool_callback(
-        self, *, callback_context: CallbackContext, tool_name: str, tool_input: Any
+        self, *, callback_context: CallbackContext = None, tool_name: str = None, tool_input: Any = None, **kwargs
     ) -> None:
         """Track tool usage."""
-        self.tool_count += 1
-        
-        # Count individual tool usage
-        if tool_name not in self.tool_usage:
-            self.tool_usage[tool_name] = 0
-        self.tool_usage[tool_name] += 1
-        
-        logging.info(
-            f"[MetricsPlugin] 🔧 Tool called: {tool_name} "
-            f"(Total tool calls: {self.tool_count})"
-        )
+        if tool_name:
+            self.tool_count += 1
+            
+            # Count individual tool usage
+            if tool_name not in self.tool_usage:
+                self.tool_usage[tool_name] = 0
+            self.tool_usage[tool_name] += 1
+            
+            logging.info(
+                f"[MetricsPlugin] 🔧 Tool called: {tool_name} "
+                f"(Total tool calls: {self.tool_count})"
+            )
     
     def get_metrics_summary(self) -> Dict[str, Any]:
         """Get comprehensive metrics summary."""
