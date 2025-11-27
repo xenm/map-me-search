@@ -1,10 +1,13 @@
 """
 AI-Powered Nearby Places Search
 Uses Google Agent Development Kit (ADK) to search for places based on user preferences
+
+Day 4 Enhancement: Added Observability (Logging, Traces, Metrics) and Evaluation
 """
 
 import os
 import asyncio
+import logging
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent, SequentialAgent
 from google.adk.models.google_llm import Gemini
@@ -15,8 +18,47 @@ from google.adk.tools import google_search, AgentTool, FunctionTool, load_memory
 from google.adk.tools.tool_context import ToolContext
 from google.adk.code_executors import BuiltInCodeExecutor
 from google.adk.apps.app import App, EventsCompactionConfig
+from google.adk.plugins.logging_plugin import LoggingPlugin
 from google.genai import types
 from typing import Any, Dict
+
+# Day 4a: Custom observability plugin (optional)
+try:
+    from observability_plugin import MetricsTrackingPlugin
+    METRICS_PLUGIN_AVAILABLE = True
+except ImportError:
+    METRICS_PLUGIN_AVAILABLE = False
+    logging.warning("⚠️ MetricsTrackingPlugin not available")
+
+# Global metrics plugin instance for summary retrieval
+_metrics_plugin_instance = None
+
+
+def configure_logging(log_level=logging.INFO, log_file="places_search.log"):
+    """
+    Configure logging for observability (Day 4a)
+    
+    Args:
+        log_level: Logging level (DEBUG, INFO, WARNING, ERROR)
+        log_file: Path to log file
+    """
+    # Clean up old log file
+    if os.path.exists(log_file):
+        os.remove(log_file)
+        print(f"🧹 Cleaned up old log file: {log_file}")
+    
+    # Configure logging
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s - %(filename)s:%(lineno)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()  # Also print to console
+        ]
+    )
+    
+    print(f"✅ Logging configured: Level={logging.getLevelName(log_level)}, File={log_file}")
+    return log_file
 
 
 def load_environment():
@@ -331,7 +373,13 @@ def create_app_with_compaction(root_agent):
     return app
 
 
-async def search_places(city_name: str, preferences: str, session_id: str = "default"):
+async def search_places(
+    city_name: str, 
+    preferences: str, 
+    session_id: str = "default", 
+    enable_logging_plugin: bool = True,
+    enable_metrics_plugin: bool = True
+):
     """
     Search for nearby places based on city and preferences with session persistence
     
@@ -339,7 +387,11 @@ async def search_places(city_name: str, preferences: str, session_id: str = "def
         city_name: The name of the city to search in
         preferences: What the user likes (e.g., "coffee shops", "museums", "parks")
         session_id: Session identifier for conversation continuity
+        enable_logging_plugin: Enable LoggingPlugin for observability (Day 4a)
+        enable_metrics_plugin: Enable MetricsTrackingPlugin for metrics (Day 4a)
     """
+    global _metrics_plugin_instance
+    
     print(f"\n🔍 Searching for places in {city_name} based on: '{preferences}'")
     print("=" * 60)
     
@@ -352,11 +404,24 @@ async def search_places(city_name: str, preferences: str, session_id: str = "def
     # Create App with context compaction
     app = create_app_with_compaction(agent)
     
-    # Create Runner with all services
+    # Create plugins list for observability (Day 4a)
+    plugins = []
+    
+    if enable_logging_plugin:
+        plugins.append(LoggingPlugin())
+        logging.info("🔌 LoggingPlugin enabled for comprehensive observability")
+    
+    if enable_metrics_plugin and METRICS_PLUGIN_AVAILABLE:
+        _metrics_plugin_instance = MetricsTrackingPlugin()
+        plugins.append(_metrics_plugin_instance)
+        logging.info("🔌 MetricsTrackingPlugin enabled for performance metrics")
+    
+    # Create Runner with all services and plugins
     runner = Runner(
         app=app,
         session_service=session_service,
-        memory_service=memory_service
+        memory_service=memory_service,
+        plugins=plugins  # Day 4a: Add plugins for observability
     )
     
     print(f"\n📱 Session ID: {session_id}")
@@ -408,6 +473,10 @@ async def search_places(city_name: str, preferences: str, session_id: str = "def
     except Exception as e:
         print(f"\n⚠️ Memory save failed: {e}")
     
+    # Day 4a: Log metrics summary if MetricsTrackingPlugin is enabled
+    if _metrics_plugin_instance:
+        _metrics_plugin_instance.log_metrics_summary()
+    
     return final_text
 
 
@@ -437,16 +506,27 @@ def get_user_input():
 
 
 async def main():
-    """Main application entry point"""
+    """Main application entry point with observability (Day 4a)"""
     try:
+        # Day 4a: Configure logging first
+        log_file = configure_logging(
+            log_level=logging.INFO,  # Change to logging.DEBUG for detailed traces
+            log_file="places_search.log"
+        )
+        logging.info("🚀 Application started")
+        
         # Load environment variables
         load_environment()
+        logging.info("✅ Environment loaded")
         
         # Get user input
         city_name, preferences = get_user_input()
         
         if not city_name or not preferences:
+            logging.warning("⚠️ User input incomplete - exiting")
             return
+        
+        logging.info(f"📍 User query: city={city_name}, preferences={preferences}")
         
         # Search for places
         response = await search_places(city_name, preferences)
@@ -454,11 +534,15 @@ async def main():
         # Print results
         print_response(response)
         
-        print("\n✅ Search completed successfully!")
+        logging.info("✅ Search completed successfully")
+        print(f"\n✅ Search completed successfully!")
+        print(f"📊 Logs saved to: {log_file}")
         
     except ValueError as e:
+        logging.error(f"❌ Configuration Error: {e}")
         print(f"\n❌ Configuration Error: {e}")
     except Exception as e:
+        logging.exception(f"❌ Unexpected error: {e}")
         print(f"\n❌ Error: {e}")
         import traceback
         traceback.print_exc()

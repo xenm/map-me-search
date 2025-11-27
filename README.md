@@ -28,6 +28,8 @@ python3 main.py
 - 🎨 **Beautiful Formatting**: Presentation specialist creates engaging output
 - 🔄 **Reliable**: Automatic retry logic for API calls
 - 📝 **User-Friendly**: Simple command-line interface
+- 🔎 **Observability**: Comprehensive logging, traces, and metrics (Day 4)
+- 📝 **Agent Evaluation**: Automated testing and regression detection (Day 4)
 
 ## 📖 Documentation
 
@@ -35,6 +37,8 @@ python3 main.py
 |----------|---------|
 | [QUICKSTART.md](QUICKSTART.md) | Get started in 3 steps |
 | [SETUP.md](SETUP.md) | Detailed setup instructions |
+| [DAY4_OBSERVABILITY_EVALUATION_GUIDE.md](DAY4_OBSERVABILITY_EVALUATION_GUIDE.md) | **🔎 Day 4: Observability & Evaluation** |
+| [DAY4_ENHANCEMENT_SUMMARY.md](DAY4_ENHANCEMENT_SUMMARY.md) | **Day 4: What's new** |
 | [SESSION_MEMORY_GUIDE.md](SESSION_MEMORY_GUIDE.md) | **🧠 Day 3: Sessions & Memory guide** |
 | [DAY3_ENHANCEMENT_SUMMARY.md](DAY3_ENHANCEMENT_SUMMARY.md) | **Day 3: What's new** |
 | [BUGFIX_SUMMARY.md](BUGFIX_SUMMARY.md) | **🔧 Critical bug fixes** |
@@ -75,15 +79,19 @@ python3 main.py
 - **Sessions**: DatabaseSessionService (SQLite persistence)
 - **Memory**: InMemoryMemoryService (long-term knowledge)
 - **Context**: EventsCompactionConfig (automatic summarization)
+- **Observability**: LoggingPlugin, MetricsTrackingPlugin (Day 4)
+- **Testing**: pytest, ADK evaluation framework (Day 4)
 
-### Complete System Architecture (Days 1-3)
+### Complete System Architecture (Days 1-4)
 
 ```
 DatabaseSessionService (Persistent Conversations)
     ↓
 InMemoryMemoryService (Long-term Knowledge)
     ↓
-Runner (Session + Memory + App)
+Runner (Session + Memory + App + Plugins)
+    ├─ LoggingPlugin (Day 4: Observability)
+    ├─ MetricsTrackingPlugin (Day 4: Metrics)
     ↓
 ResearchAgent (Google Search)
     ↓
@@ -97,13 +105,19 @@ FilterAgent (Advanced Scoring + Session State)
 FormatterAgent (Beautiful Output)
     ↓
 Callbacks (auto-save to memory)
+    ↓
+Logs & Metrics (Day 4: places_search.log)
+    ↓
+Evaluation Suite (Day 4: pytest + ADK eval)
 ```
 
 **Day 1:** Multi-agent pipeline  
 **Day 2:** Custom tools + code execution  
 **Day 3:** Sessions + memory + context compaction  
+**Day 4:** Observability + evaluation  
 
 Learn more: 
+- [DAY4_OBSERVABILITY_EVALUATION_GUIDE.md](DAY4_OBSERVABILITY_EVALUATION_GUIDE.md) - Day 4 guide
 - [SESSION_MEMORY_GUIDE.md](SESSION_MEMORY_GUIDE.md) - Day 3 guide
 - [ADVANCED_TOOLS.md](ADVANCED_TOOLS.md) - Day 2 tools
 - [MULTI_AGENT_ARCHITECTURE.md](MULTI_AGENT_ARCHITECTURE.md) - Day 1 architecture
@@ -130,7 +144,7 @@ python3 verify_setup.py
 2. Copy `.env.example` to `.env`
 3. Add your key: `GOOGLE_API_KEY=your_key_here`
 
-## 🧪 Testing
+## 🧪 Testing & Evaluation
 
 ```bash
 # Test imports
@@ -139,8 +153,20 @@ python3 test_imports.py
 # Verify complete setup
 python3 verify_setup.py
 
-# Run the app
+# Run the app (with observability)
 python3 main.py
+
+# View logs
+cat places_search.log
+
+# Run unit tests (Day 4)
+python3 -m pytest tests/test_tools.py -v
+
+# Run all evaluations (Day 4)
+python3 run_evaluation.py
+
+# Run evaluations with details (Day 4)
+python3 run_evaluation.py --detailed
 ```
 
 ## 📋 Requirements

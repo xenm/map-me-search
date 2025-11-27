@@ -1,0 +1,12 @@
+{
+  "description": "Evaluation configuration for Places Search Agent (Day 4b)",
+  "criteria": {
+    "tool_trajectory_avg_score": 0.7,
+    "response_match_score": 0.6
+  },
+  "notes": {
+    "tool_trajectory_avg_score": "Measures whether agent uses correct tools with correct parameters. 0.7 = 70% tool usage match required",
+    "response_match_score": "Measures text similarity between expected and actual responses. 0.6 = 60% similarity required",
+    "rationale": "Lower thresholds (0.6-0.7) allow for natural language variation while catching major errors"
+  }
+}

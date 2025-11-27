@@ -1,0 +1,194 @@
+{
+  "eval_set_id": "places_search_integration_suite",
+  "description": "Integration tests for AI-Powered Nearby Places Search (Day 4b)",
+  "eval_cases": [
+    {
+      "eval_id": "basic_coffee_search_tokyo",
+      "description": "Basic search for coffee shops in Tokyo",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Find nearby places in Tokyo for someone who likes coffee. Provide specific recommendations with names, brief descriptions, and why they would enjoy them."
+              }
+            ]
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Based on your interest in coffee, here are the top recommendations in Tokyo"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "google_search",
+                "args": {
+                  "query": "coffee shops Tokyo"
+                }
+              },
+              {
+                "name": "get_place_category_boost",
+                "args": {
+                  "category": "coffee",
+                  "preferences": "coffee"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "museum_search_paris",
+      "description": "Search for museums in Paris",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Find nearby places in Paris for someone who likes museums. Provide specific recommendations with names, brief descriptions, and why they would enjoy them."
+              }
+            ]
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Based on your interest in museums, here are the top recommendations in Paris"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "google_search",
+                "args": {
+                  "query": "museums Paris"
+                }
+              },
+              {
+                "name": "get_place_category_boost",
+                "args": {
+                  "category": "museum",
+                  "preferences": "museums"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "multi_preference_search_london",
+      "description": "Search with multiple preferences (restaurants and parks)",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Find nearby places in London for someone who likes restaurants and parks. Provide specific recommendations with names, brief descriptions, and why they would enjoy them."
+              }
+            ]
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Based on your interests in restaurants and parks, here are the top recommendations in London"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "google_search",
+                "args": {
+                  "query": "restaurants parks London"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "art_gallery_search_new_york",
+      "description": "Search for art galleries in New York",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Find nearby places in New York for someone who likes art galleries. Provide specific recommendations with names, brief descriptions, and why they would enjoy them."
+              }
+            ]
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Based on your interest in art galleries, here are the top recommendations in New York"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "google_search",
+                "args": {
+                  "query": "art galleries New York"
+                }
+              },
+              {
+                "name": "get_place_category_boost",
+                "args": {
+                  "category": "gallery",
+                  "preferences": "art galleries"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "ramen_search_tokyo",
+      "description": "Specific food search (ramen) in Tokyo",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Find nearby places in Tokyo for someone who likes ramen. Provide specific recommendations with names, brief descriptions, and why they would enjoy them."
+              }
+            ]
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Based on your interest in ramen, here are the top recommendations in Tokyo"
+              }
+            ]
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "google_search",
+                "args": {
+                  "query": "ramen Tokyo"
+                }
+              },
+              {
+                "name": "get_place_category_boost",
+                "args": {
+                  "category": "restaurant",
+                  "preferences": "ramen"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
