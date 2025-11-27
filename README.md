@@ -1,6 +1,26 @@
-# 🗺️ AI-Powered Nearby Places Search
+# 🗺️ AI-Powered Nearby Places Search Agent
 
-Search for nearby places based on city name and your preferences using Google's Gemini AI and Agent Development Kit.
+> **Kaggle AI Agents Intensive - Capstone Project (Concierge Agents Track)**
+
+An intelligent multi-agent system that searches for personalized nearby places using Google's Gemini AI and Agent Development Kit (ADK). The agent learns your preferences, maintains conversational context across sessions, and provides intelligent recommendations with real-time data.
+
+## 🎯 Problem Statement
+
+Planning activities in a new city or finding places that match personal preferences is time-consuming and often requires searching through multiple sources. Users need an intelligent assistant that:
+- Understands natural language preferences
+- Provides personalized, scored recommendations
+- Remembers past conversations and preferences
+- Delivers reliable, real-time information
+
+## 💡 Solution
+
+This project demonstrates a sophisticated multi-agent system powered by Google's Gemini AI that:
+- **Researches** real-time place information using Google Search
+- **Analyzes** and scores results using custom tools and code execution
+- **Remembers** user preferences across sessions with persistent memory
+- **Presents** beautiful, personalized recommendations
+- **Tracks** performance with comprehensive observability
+- **Validates** quality through automated evaluation
 
 ## ⚡ Quick Start
 
@@ -31,27 +51,34 @@ python3 main.py
 - 🔎 **Observability**: Comprehensive logging, traces, and metrics (Day 4)
 - 📝 **Agent Evaluation**: Automated testing and regression detection (Day 4)
 
+## 🏆 Capstone Requirements Met
+
+This submission demonstrates **8 key concepts** from the AI Agents Intensive Course:
+
+✅ **Multi-Agent System** (Sequential agents with specialized roles)  
+✅ **Custom Tools** (FunctionTools for scoring and state management)  
+✅ **Built-in Tools** (Google Search, Code Execution)  
+✅ **Agent-as-Tool** (CalculationAgent used by FilterAgent)  
+✅ **Sessions & State Management** (DatabaseSessionService with SQLite persistence)  
+✅ **Long-term Memory** (InMemoryMemoryService with auto-save callbacks)  
+✅ **Context Engineering** (EventsCompactionConfig for conversation summarization)  
+✅ **Observability** (LoggingPlugin + custom MetricsTrackingPlugin)  
+✅ **Agent Evaluation** (pytest unit tests + ADK evaluation framework)  
+
 ## 📖 Documentation
 
 | Document | Purpose |
 |----------|---------|
-| [QUICKSTART.md](QUICKSTART.md) | Get started in 3 steps |
-| [SETUP.md](SETUP.md) | Detailed setup instructions |
-| [DAY4_OBSERVABILITY_EVALUATION_GUIDE.md](DAY4_OBSERVABILITY_EVALUATION_GUIDE.md) | **🔎 Day 4: Observability & Evaluation** |
-| [DAY4_ENHANCEMENT_SUMMARY.md](DAY4_ENHANCEMENT_SUMMARY.md) | **Day 4: What's new** |
-| [BUGFIX_DAY4.md](BUGFIX_DAY4.md) | **🔧 Day 4: Plugin configuration fix** |
-| [PYTHON_VERSION_COMPATIBILITY.md](PYTHON_VERSION_COMPATIBILITY.md) | **🐍 Python version compatibility** |
-| [SESSION_MEMORY_GUIDE.md](SESSION_MEMORY_GUIDE.md) | **🧠 Day 3: Sessions & Memory guide** |
-| [DAY3_ENHANCEMENT_SUMMARY.md](DAY3_ENHANCEMENT_SUMMARY.md) | **Day 3: What's new** |
-| [BUGFIX_SUMMARY.md](BUGFIX_SUMMARY.md) | **🔧 Critical bug fixes** |
-| [ADVANCED_TOOLS.md](ADVANCED_TOOLS.md) | **Day 2: Advanced tools & patterns** |
-| [ENHANCEMENT_SUMMARY.md](ENHANCEMENT_SUMMARY.md) | **Day 2: Tools enhancement** |
-| [MULTI_AGENT_ARCHITECTURE.md](MULTI_AGENT_ARCHITECTURE.md) | Day 1: Multi-agent system design |
+| [docs/QUICKSTART.md](docs/QUICKSTART.md) | Get started in 3 steps |
+| [docs/SETUP.md](docs/SETUP.md) | Detailed setup instructions |
+| [docs/DAY4_OBSERVABILITY_EVALUATION_GUIDE.md](docs/DAY4_OBSERVABILITY_EVALUATION_GUIDE.md) | **🔎 Day 4: Observability & Evaluation** |
+| [docs/SESSION_MEMORY_GUIDE.md](docs/SESSION_MEMORY_GUIDE.md) | **🧠 Day 3: Sessions & Memory guide** |
+| [docs/ADVANCED_TOOLS.md](docs/ADVANCED_TOOLS.md) | **Day 2: Advanced tools & patterns** |
+| [docs/MULTI_AGENT_ARCHITECTURE.md](docs/MULTI_AGENT_ARCHITECTURE.md) | Day 1: Multi-agent system design |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical architecture |
+| [docs/PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md) | Complete project overview |
+| [docs/PYTHON_VERSION_COMPATIBILITY.md](docs/PYTHON_VERSION_COMPATIBILITY.md) | Python version compatibility |
 | [examples/](examples/) | Multi-agent pattern examples |
-| [PROJECT_README.md](PROJECT_README.md) | Full project documentation |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture |
-| [COMMANDS.md](COMMANDS.md) | Command reference |
-| [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) | Complete project overview |
 
 ## 🚀 Example Usage
 
@@ -70,59 +97,91 @@ python3 main.py
 ============================================================
 ```
 
+## 🏗️ Architecture
+
+The system uses a **sequential multi-agent pipeline** where each agent has a specialized role:
+
+### Agent Pipeline
+
+1. **ResearchAgent** - Searches for places using Google Search API
+2. **FilterAgent** - Scores and ranks results using custom tools:
+   - `calculate_distance_score()` - Proximity scoring (FunctionTool)
+   - `get_place_category_boost()` - Category matching (FunctionTool)
+   - `save_user_preferences()` - Session state management (FunctionTool)
+   - `retrieve_user_preferences()` - Session state retrieval (FunctionTool)
+   - **CalculationAgent** - Mathematical scoring via code execution (AgentTool)
+3. **FormatterAgent** - Presents beautiful, user-friendly recommendations
+
+### Infrastructure
+
+- **DatabaseSessionService**: Persistent conversations across restarts (SQLite)
+- **InMemoryMemoryService**: Long-term knowledge storage with auto-save callbacks
+- **EventsCompactionConfig**: Automatic context summarization (every 4 turns)
+- **LoggingPlugin**: Comprehensive observability and tracing
+- **MetricsTrackingPlugin**: Custom performance metrics tracking
+
 ## 🛠️ Tech Stack
 
-- **Framework**: Google Agent Development Kit (ADK)
-- **Architecture**: Multi-Agent System (Sequential Pattern)
-- **AI Model**: Gemini 2.5 Flash
-- **Language**: Python 3.8+
-- **Tools**: Google Search, Custom FunctionTools, AgentTools
-- **Execution**: BuiltInCodeExecutor for reliable calculations
-- **Sessions**: DatabaseSessionService (SQLite persistence)
-- **Memory**: InMemoryMemoryService (long-term knowledge)
-- **Context**: EventsCompactionConfig (automatic summarization)
-- **Observability**: LoggingPlugin, MetricsTrackingPlugin (Day 4)
-- **Testing**: pytest, ADK evaluation framework (Day 4)
+- **Framework**: Google Agent Development Kit (ADK Python)
+- **AI Model**: Gemini 2.5 Flash (with retry logic)
+- **Language**: Python 3.10+ (Python 3.9 supported with limitations)
+- **Database**: SQLite (session persistence)
+- **Tools**: Google Search, Custom FunctionTools, AgentTools, BuiltInCodeExecutor
+- **Testing**: pytest, ADK evaluation framework
+- **Observability**: Logging, Metrics, Tracing
 
-### Complete System Architecture (Days 1-4)
+### System Flow Diagram
 
 ```
-DatabaseSessionService (Persistent Conversations)
-    ↓
-InMemoryMemoryService (Long-term Knowledge)
-    ↓
-Runner (Session + Memory + App + Plugins)
-    ├─ LoggingPlugin (Day 4: Observability)
-    ├─ MetricsTrackingPlugin (Day 4: Metrics)
-    ↓
-ResearchAgent (Google Search)
-    ↓
-FilterAgent (Advanced Scoring + Session State)
-    ├─ calculate_distance_score (FunctionTool)
-    ├─ get_place_category_boost (FunctionTool)
-    ├─ save_user_preferences (Session State)
-    ├─ retrieve_user_preferences (Session State)
-    └─ CalculationAgent (AgentTool + Code Executor)
-    ↓
-FormatterAgent (Beautiful Output)
-    ↓
-Callbacks (auto-save to memory)
-    ↓
-Logs & Metrics (Day 4: places_search.log)
-    ↓
-Evaluation Suite (Day 4: pytest + ADK eval)
+┌─────────────────────────────────────────────────────────┐
+│ DatabaseSessionService (SQLite Persistence)             │
+│ + InMemoryMemoryService (Long-term Knowledge)          │
+└─────────────────────────┬───────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────┐
+│ Runner (Session + Memory + App)                         │
+│  ├─ LoggingPlugin (Observability & Tracing)            │
+│  └─ MetricsTrackingPlugin (Performance Metrics)        │
+└─────────────────────────┬───────────────────────────────┘
+                          ↓
+        ┌─────────────────┴─────────────────┐
+        ↓                                   ↓
+┌──────────────────┐              ┌──────────────────┐
+│ ResearchAgent    │              │ Context          │
+│ • Google Search  │──────────→   │ Compaction       │
+└────────┬─────────┘              │ (Every 4 turns)  │
+         ↓                        └──────────────────┘
+┌──────────────────────────────────────────────┐
+│ FilterAgent                                  │
+│  ├─ calculate_distance_score (FunctionTool) │
+│  ├─ get_place_category_boost (FunctionTool) │
+│  ├─ save_user_preferences (FunctionTool)    │
+│  ├─ retrieve_user_preferences (FunctionTool)│
+│  ├─ preload_memory (Memory retrieval)       │
+│  └─ CalculationAgent (AgentTool)            │
+│      └─ BuiltInCodeExecutor (Python code)   │
+└────────┬─────────────────────────────────────┘
+         ↓
+┌──────────────────┐
+│ FormatterAgent   │
+│ • Beautiful UI   │
+└────────┬─────────┘
+         ↓
+┌──────────────────────────────────────┐
+│ Auto-save Callback                   │
+│ → Memory persistence                 │
+└──────────────────────────────────────┘
+         ↓
+┌──────────────────────────────────────┐
+│ Outputs:                             │
+│ • places_search.log (Logs & Traces)  │
+│ • Metrics Summary (Performance)      │
+│ • User Recommendations               │
+└──────────────────────────────────────┘
 ```
 
-**Day 1:** Multi-agent pipeline  
-**Day 2:** Custom tools + code execution  
-**Day 3:** Sessions + memory + context compaction  
-**Day 4:** Observability + evaluation  
-
-Learn more: 
-- [DAY4_OBSERVABILITY_EVALUATION_GUIDE.md](DAY4_OBSERVABILITY_EVALUATION_GUIDE.md) - Day 4 guide
-- [SESSION_MEMORY_GUIDE.md](SESSION_MEMORY_GUIDE.md) - Day 3 guide
-- [ADVANCED_TOOLS.md](ADVANCED_TOOLS.md) - Day 2 tools
-- [MULTI_AGENT_ARCHITECTURE.md](MULTI_AGENT_ARCHITECTURE.md) - Day 1 architecture
+**Learn More:**  
+📚 [Architecture Details](docs/ARCHITECTURE.md) | [Session & Memory Guide](docs/SESSION_MEMORY_GUIDE.md) | [Observability Guide](docs/DAY4_OBSERVABILITY_EVALUATION_GUIDE.md)
 
 ## 📦 Installation
 
@@ -148,50 +207,102 @@ python3 verify_setup.py
 
 ## 🧪 Testing & Evaluation
 
+Comprehensive testing ensures agent quality and prevents regression:
+
+### Unit Tests
 ```bash
-# Test imports
-python3 test_imports.py
-
-# Verify complete setup
-python3 verify_setup.py
-
-# Run the app (with observability)
-python3 main.py
-
-# View logs
-cat places_search.log
-
-# Run unit tests (Day 4)
+# Test custom tools (calculate_distance_score, get_place_category_boost)
 python3 -m pytest tests/test_tools.py -v
+```
 
-# Run all evaluations (Day 4)
+### Integration Evaluation
+```bash
+# Run all evaluations (unit + integration)
 python3 run_evaluation.py
 
-# Run evaluations with details (Day 4)
+# Run with detailed results
 python3 run_evaluation.py --detailed
+
+# Show evaluation summary
+python3 run_evaluation.py --summary
 ```
+
+### Observability
+```bash
+# Run the app (generates logs and metrics)
+python3 main.py
+
+# View comprehensive logs
+cat places_search.log
+```
+
+**Evaluation Files:**
+- `tests/test_tools.py` - Unit tests for custom tools
+- `tests/integration.evalset.json` - Integration test cases
+- `tests/test_config.json` - Evaluation configuration
+
+**Success Criteria:**
+- Tool trajectory match: ≥70%
+- Response similarity: ≥60%
+- All unit tests passing
 
 ## 📋 Requirements
 
 - **Python 3.10+** (recommended) or Python 3.9 (limited features)
-  - See [PYTHON_VERSION_COMPATIBILITY.md](PYTHON_VERSION_COMPATIBILITY.md) for details
-- Google Gemini API key (free tier available)
-- Internet connection
+  - See [docs/PYTHON_VERSION_COMPATIBILITY.md](docs/PYTHON_VERSION_COMPATIBILITY.md) for details
+- Google Gemini API key (free tier available at [AI Studio](https://aistudio.google.com/app/apikey))
+- Internet connection for Google Search API
+- ~50MB disk space for dependencies
 
-## 🤝 Contributing
+## 🎓 Educational Value
 
-This is an educational project demonstrating Google ADK usage. Feel free to fork and extend!
+This project demonstrates production-ready patterns for building AI agents:
+- **Multi-agent orchestration** with clear separation of concerns
+- **Tool composition** (FunctionTools + AgentTools + Built-in Tools)
+- **State management** across sessions with persistence
+- **Memory systems** for long-term knowledge retention
+- **Context optimization** to manage token limits
+- **Observability** for debugging and performance monitoring
+- **Quality assurance** through automated evaluation
+
+## 🎯 Use Cases
+
+This architecture can be adapted for:
+- Travel planning and itinerary creation
+- Restaurant and activity recommendations
+- Event discovery and planning
+- Local business search
+- Real estate and neighborhood exploration
 
 ## 📄 License
 
 See [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
+## 🆘 Troubleshooting
 
-- Check [SETUP.md](SETUP.md) for troubleshooting
-- Run `python3 verify_setup.py` for diagnostics
-- Review documentation in the docs above
+- **Setup Issues**: Check [docs/SETUP.md](docs/SETUP.md)
+- **Python Version**: See [docs/PYTHON_VERSION_COMPATIBILITY.md](docs/PYTHON_VERSION_COMPATIBILITY.md)
+- **Diagnostics**: Run `python3 verify_setup.py`
+- **Common Issues**: Review [docs/BUGFIX_SUMMARY.md](docs/BUGFIX_SUMMARY.md)
 
 ---
 
-**Built with** ❤️ **using Google Agent Development Kit**
+## 📊 Project Stats
+
+- **Lines of Code**: ~800 (main.py + observability_plugin.py)
+- **Agents**: 4 (Research, Filter, Calculation, Formatter)
+- **Custom Tools**: 4 FunctionTools + 1 AgentTool
+- **Test Coverage**: Unit tests + Integration evaluation
+- **Documentation**: 25+ markdown files
+
+## 🏅 Kaggle AI Agents Intensive
+
+**Track**: Concierge Agents  
+**Submission Date**: November 2025  
+**Key Concepts**: 8/9 course concepts implemented  
+**Model**: Gemini 2.5 Flash  
+
+---
+
+**Built with** ❤️ **using Google Agent Development Kit (ADK Python)**  
+**Course**: [5-Day AI Agents Intensive with Google](https://www.kaggle.com/competitions/agents-intensive-capstone-project)
