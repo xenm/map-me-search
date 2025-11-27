@@ -39,6 +39,8 @@ python3 main.py
 | [SETUP.md](SETUP.md) | Detailed setup instructions |
 | [DAY4_OBSERVABILITY_EVALUATION_GUIDE.md](DAY4_OBSERVABILITY_EVALUATION_GUIDE.md) | **🔎 Day 4: Observability & Evaluation** |
 | [DAY4_ENHANCEMENT_SUMMARY.md](DAY4_ENHANCEMENT_SUMMARY.md) | **Day 4: What's new** |
+| [BUGFIX_DAY4.md](BUGFIX_DAY4.md) | **🔧 Day 4: Plugin configuration fix** |
+| [PYTHON_VERSION_COMPATIBILITY.md](PYTHON_VERSION_COMPATIBILITY.md) | **🐍 Python version compatibility** |
 | [SESSION_MEMORY_GUIDE.md](SESSION_MEMORY_GUIDE.md) | **🧠 Day 3: Sessions & Memory guide** |
 | [DAY3_ENHANCEMENT_SUMMARY.md](DAY3_ENHANCEMENT_SUMMARY.md) | **Day 3: What's new** |
 | [BUGFIX_SUMMARY.md](BUGFIX_SUMMARY.md) | **🔧 Critical bug fixes** |
@@ -171,7 +173,8 @@ python3 run_evaluation.py --detailed
 
 ## 📋 Requirements
 
-- Python 3.8 or higher
+- **Python 3.10+** (recommended) or Python 3.9 (limited features)
+  - See [PYTHON_VERSION_COMPATIBILITY.md](PYTHON_VERSION_COMPATIBILITY.md) for details
 - Google Gemini API key (free tier available)
 - Internet connection
 

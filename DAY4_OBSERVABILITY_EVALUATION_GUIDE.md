@@ -54,9 +54,18 @@ Automatically captures:
 ```python
 from google.adk.plugins.logging_plugin import LoggingPlugin
 
+# IMPORTANT: When using App, plugins go in App constructor, not Runner
+app = App(
+    name="MyApp",
+    root_agent=agent,
+    plugins=[LoggingPlugin()]  # ✅ Add plugins here
+)
+
 runner = Runner(
     app=app,
-    plugins=[LoggingPlugin()]
+    session_service=session_service,
+    memory_service=memory_service
+    # No plugins parameter when using App
 )
 ```
 
@@ -408,6 +417,18 @@ Runner (with Plugins)
 
 ## Troubleshooting
 
+### "Error: plugins should be provided in the app instead"
+**Solution:** When using `App`, add plugins to the `App` constructor, not `Runner`:
+```python
+# ✅ CORRECT
+app = App(root_agent=agent, plugins=[LoggingPlugin()])
+runner = Runner(app=app)  # No plugins here
+
+# ❌ WRONG
+runner = Runner(app=app, plugins=[LoggingPlugin()])
+```
+See [BUGFIX_DAY4.md](BUGFIX_DAY4.md) for details.
+
 ### "No logs generated"
 - Check file permissions
 - Verify `configure_logging()` is called
@@ -421,7 +442,7 @@ Runner (with Plugins)
 ### "Metrics not showing"
 - Ensure `MetricsTrackingPlugin` is imported
 - Check `METRICS_PLUGIN_AVAILABLE` flag
-- Verify plugin is added to runner
+- Verify plugin is added to App (not Runner)
 
 ### "Pytest not found"
 ```bash

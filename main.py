@@ -6,13 +6,14 @@ Day 4 Enhancement: Added Observability (Logging, Traces, Metrics) and Evaluation
 """
 
 import os
+import sys
 import asyncio
 import logging
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent, SequentialAgent
 from google.adk.models.google_llm import Gemini
 from google.adk.runners import Runner
-from google.adk.sessions import DatabaseSessionService
+from google.adk.sessions import DatabaseSessionService, InMemorySessionService
 from google.adk.memory import InMemoryMemoryService
 from google.adk.tools import google_search, AgentTool, FunctionTool, load_memory, preload_memory
 from google.adk.tools.tool_context import ToolContext
@@ -59,6 +60,20 @@ def configure_logging(log_level=logging.INFO, log_file="places_search.log"):
     
     print(f"✅ Logging configured: Level={logging.getLevelName(log_level)}, File={log_file}")
     return log_file
+
+
+def check_python_version():
+    """Check Python version and warn if outdated."""
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    
+    if sys.version_info < (3, 10):
+        logging.warning(
+            f"⚠️ Python {python_version} detected. Python 3.10+ recommended for full compatibility."
+        )
+        logging.warning("⚠️ Some features (like DatabaseSessionService) may not work correctly.")
+        print(f"⚠️ Warning: Python {python_version} detected")
+        print("⚠️ Python 3.10+ is recommended for full compatibility")
+        print("⚠️ The app will work with limited features (sessions won't persist)\n")
 
 
 def load_environment():
@@ -337,13 +352,35 @@ End with a friendly summary of the recommendations.""",
 
 
 def initialize_services():
-    """Initialize Session and Memory services with persistence."""
+    """Initialize Session and Memory services with persistence.
+    
+    Falls back to InMemorySessionService if DatabaseSessionService fails
+    (e.g., due to Python version incompatibility or SQLAlchemy issues).
+    """
     print("\n🗄️ Initializing Services...")
     
-    # DatabaseSessionService - Persistent sessions across restarts
+    # Try DatabaseSessionService first - Persistent sessions across restarts
     db_url = "sqlite:///places_search_sessions.db"
-    session_service = DatabaseSessionService(db_url=db_url)
-    print(f"✅ DatabaseSessionService initialized: {db_url}")
+    session_service = None
+    
+    try:
+        session_service = DatabaseSessionService(db_url=db_url)
+        print(f"✅ DatabaseSessionService initialized: {db_url}")
+        logging.info(f"DatabaseSessionService initialized: {db_url}")
+    except Exception as e:
+        # Fallback to InMemorySessionService if database fails
+        python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        logging.warning(
+            f"⚠️ DatabaseSessionService failed (Python {python_version}): {e}"
+        )
+        logging.warning("⚠️ Falling back to InMemorySessionService (sessions won't persist)")
+        print(f"⚠️ DatabaseSessionService failed: {e}")
+        print("⚠️ Using InMemorySessionService instead (sessions won't persist across restarts)")
+        print(f"💡 Tip: Upgrade to Python 3.10+ (currently using Python {python_version})")
+        
+        session_service = InMemorySessionService()
+        print("✅ InMemorySessionService initialized (fallback mode)")
+        logging.info("InMemorySessionService initialized as fallback")
     
     # InMemoryMemoryService - Long-term knowledge storage
     memory_service = InMemoryMemoryService()
@@ -352,8 +389,13 @@ def initialize_services():
     return session_service, memory_service
 
 
-def create_app_with_compaction(root_agent):
-    """Create App with Events Compaction for context optimization."""
+def create_app_with_compaction(root_agent, plugins=None):
+    """Create App with Events Compaction for context optimization.
+    
+    Args:
+        root_agent: The root agent for the app
+        plugins: List of plugins to add to the app (Day 4a)
+    """
     print("\n📦 Creating App with Context Compaction...")
     
     app = App(
@@ -364,11 +406,14 @@ def create_app_with_compaction(root_agent):
             compaction_interval=4,  # Compact every 4 turns
             overlap_size=1,  # Keep 1 turn for context
         ),
+        plugins=plugins or [],  # Day 4a: Add plugins to App, not Runner
     )
     
     print("✅ App created with EventsCompactionConfig")
     print("   - Compaction interval: 4 turns")
     print("   - Overlap size: 1 turn")
+    if plugins:
+        print(f"   - Plugins: {len(plugins)} enabled")
     
     return app
 
@@ -401,9 +446,6 @@ async def search_places(
     # Initialize Session and Memory services
     session_service, memory_service = initialize_services()
     
-    # Create App with context compaction
-    app = create_app_with_compaction(agent)
-    
     # Create plugins list for observability (Day 4a)
     plugins = []
     
@@ -416,12 +458,14 @@ async def search_places(
         plugins.append(_metrics_plugin_instance)
         logging.info("🔌 MetricsTrackingPlugin enabled for performance metrics")
     
-    # Create Runner with all services and plugins
+    # Create App with context compaction and plugins (Day 4a: plugins go in App, not Runner)
+    app = create_app_with_compaction(agent, plugins=plugins)
+    
+    # Create Runner with all services (plugins are in the App)
     runner = Runner(
         app=app,
         session_service=session_service,
-        memory_service=memory_service,
-        plugins=plugins  # Day 4a: Add plugins for observability
+        memory_service=memory_service
     )
     
     print(f"\n📱 Session ID: {session_id}")
@@ -514,6 +558,9 @@ async def main():
             log_file="places_search.log"
         )
         logging.info("🚀 Application started")
+        
+        # Check Python version
+        check_python_version()
         
         # Load environment variables
         load_environment()
