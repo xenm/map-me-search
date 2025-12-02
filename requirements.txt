@@ -1,4 +1,14 @@
-google-adk
-python-dotenv
-protobuf
+# Core dependencies
+google-adk>=0.3.0
+google-genai>=0.3.0
+python-dotenv>=1.0.0
+protobuf>=4.0.0
+
+# Testing
 pytest>=7.0.0
+
+# Frontend (optional - for local frontend development)
+gradio>=4.0.0
+
+# Observability
+opentelemetry-instrumentation-google-genai>=0.1.0

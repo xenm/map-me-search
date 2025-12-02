@@ -9,6 +9,8 @@ import os
 import sys
 import asyncio
 import logging
+import uuid
+from typing import Any, Dict, Optional
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent, SequentialAgent
 from google.adk.models.google_llm import Gemini
@@ -21,7 +23,6 @@ from google.adk.code_executors import BuiltInCodeExecutor
 from google.adk.apps.app import App, EventsCompactionConfig
 from google.adk.plugins.logging_plugin import LoggingPlugin
 from google.genai import types
-from typing import Any, Dict
 
 # Day 4a: Custom observability plugin (optional)
 try:
@@ -351,36 +352,43 @@ End with a friendly summary of the recommendations.""",
     return root_agent
 
 
-def initialize_services():
-    """Initialize Session and Memory services with persistence.
+def initialize_services(topic: Optional[str] = None):
+    """Initialize Session and Memory services based on topic.
     
-    Falls back to InMemorySessionService if DatabaseSessionService fails
-    (e.g., due to Python version incompatibility or SQLAlchemy issues).
+    Args:
+        topic: If provided, use DatabaseSessionService for persistence.
+               If None/empty, use InMemorySessionService for transient session.
+    
+    Returns:
+        Tuple of (session_service, memory_service)
     """
     print("\n🗄️ Initializing Services...")
     
-    # Try DatabaseSessionService first - Persistent sessions across restarts
-    db_url = "sqlite:///places_search_sessions.db"
-    session_service = None
-    
-    try:
-        session_service = DatabaseSessionService(db_url=db_url)
-        print(f"✅ DatabaseSessionService initialized: {db_url}")
-        logging.info(f"DatabaseSessionService initialized: {db_url}")
-    except Exception as e:
-        # Fallback to InMemorySessionService if database fails
-        python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-        logging.warning(
-            f"⚠️ DatabaseSessionService failed (Python {python_version}): {e}"
-        )
-        logging.warning("⚠️ Falling back to InMemorySessionService (sessions won't persist)")
-        print(f"⚠️ DatabaseSessionService failed: {e}")
-        print("⚠️ Using InMemorySessionService instead (sessions won't persist across restarts)")
-        print(f"💡 Tip: Upgrade to Python 3.10+ (currently using Python {python_version})")
-        
+    if topic:
+        # PERSISTENT: Use database for topic-based sessions
+        db_url = "sqlite:///places_search_sessions.db"
+        try:
+            session_service = DatabaseSessionService(db_url=db_url)
+            print(f"✅ DatabaseSessionService initialized for topic '{topic}': {db_url}")
+            logging.info(f"DatabaseSessionService initialized for topic '{topic}': {db_url}")
+        except Exception as e:
+            # Fallback to InMemorySessionService if database fails
+            python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+            logging.warning(
+                f"⚠️ DatabaseSessionService failed (Python {python_version}): {e}"
+            )
+            logging.warning("⚠️ Falling back to InMemorySessionService (sessions won't persist)")
+            print(f"⚠️ DatabaseSessionService failed: {e}")
+            print(f"💡 Tip: Upgrade to Python 3.10+ (currently using Python {python_version})")
+            
+            session_service = InMemorySessionService()
+            print("✅ InMemorySessionService initialized (fallback mode)")
+            logging.info("InMemorySessionService initialized as fallback")
+    else:
+        # TRANSIENT: Use in-memory for one-off searches (no topic)
         session_service = InMemorySessionService()
-        print("✅ InMemorySessionService initialized (fallback mode)")
-        logging.info("InMemorySessionService initialized as fallback")
+        print("🚀 Transient Mode: Using InMemorySessionService (No DB write)")
+        logging.info("InMemorySessionService initialized (transient mode - no topic)")
     
     # InMemoryMemoryService - Long-term knowledge storage
     memory_service = InMemoryMemoryService()
@@ -421,7 +429,8 @@ def create_app_with_compaction(root_agent, plugins=None):
 async def search_places(
     city_name: str, 
     preferences: str, 
-    session_id: str = "default", 
+    topic: Optional[str] = None,
+    user_id: str = "default_user",
     enable_logging_plugin: bool = True,
     enable_metrics_plugin: bool = True
 ):
@@ -431,20 +440,27 @@ async def search_places(
     Args:
         city_name: The name of the city to search in
         preferences: What the user likes (e.g., "coffee shops", "museums", "parks")
-        session_id: Session identifier for conversation continuity
+        topic: Optional topic for session persistence. If None/empty, uses transient session.
+               - Empty: InMemorySessionService (no history saved)
+               - With topic: DatabaseSessionService (history persists for this topic)
+        user_id: User identifier for session management
         enable_logging_plugin: Enable LoggingPlugin for observability (Day 4a)
         enable_metrics_plugin: Enable MetricsTrackingPlugin for metrics (Day 4a)
     """
     global _metrics_plugin_instance
     
+    # Clean topic (empty string becomes None)
+    topic = topic.strip() if topic else None
+    
     print(f"\n🔍 Searching for places in {city_name} based on: '{preferences}'")
+    print(f"🏷️  Topic: {topic or 'None (transient session)'}")
     print("=" * 60)
     
     # Initialize multi-agent system
     agent = initialize_multi_agent_system()
     
-    # Initialize Session and Memory services
-    session_service, memory_service = initialize_services()
+    # Initialize Session and Memory services based on topic
+    session_service, memory_service = initialize_services(topic)
     
     # Create plugins list for observability (Day 4a)
     plugins = []
@@ -468,20 +484,28 @@ async def search_places(
         memory_service=memory_service
     )
     
+    # Generate session ID based on topic
+    # If topic provided: stable ID for persistence
+    # If no topic: random UUID for transient session
+    if topic:
+        session_id = f"{user_id}::{topic}"
+    else:
+        session_id = f"{user_id}::temp::{uuid.uuid4()}"
+    
     print(f"\n📱 Session ID: {session_id}")
     
     # Create or retrieve session
     try:
         session = await session_service.create_session(
             app_name=app.name,
-            user_id="default_user",
+            user_id=user_id,
             session_id=session_id
         )
         print("✅ New session created")
     except:
         session = await session_service.get_session(
             app_name=app.name,
-            user_id="default_user",
+            user_id=user_id,
             session_id=session_id
         )
         print("✅ Existing session retrieved")
@@ -501,7 +525,7 @@ async def search_places(
     # Run the agent asynchronously and collect response
     final_text = ""
     async for event in runner.run_async(
-        user_id="default_user",
+        user_id=user_id,
         session_id=session.id,
         new_message=query_content
     ):
@@ -510,12 +534,15 @@ async def search_places(
             if text and text != "None":
                 final_text = text
     
-    # Save session to memory for long-term recall
-    try:
-        await memory_service.add_session_to_memory(session)
-        print("\n💾 Session saved to memory for future recall")
-    except Exception as e:
-        print(f"\n⚠️ Memory save failed: {e}")
+    # Save session to memory for long-term recall (only if topic is provided)
+    if topic:
+        try:
+            await memory_service.add_session_to_memory(session)
+            print(f"\n💾 Session saved to memory for topic '{topic}'")
+        except Exception as e:
+            print(f"\n⚠️ Memory save failed: {e}")
+    else:
+        print("\n🚀 Transient session - skipping memory save")
     
     # Day 4a: Log metrics summary if MetricsTrackingPlugin is enabled
     if _metrics_plugin_instance:
@@ -534,19 +561,20 @@ def print_response(response):
 
 
 def get_user_input():
-    """Get city name and preferences from the user"""
+    """Get city name, preferences, and optional topic from the user"""
     print("\n" + "=" * 60)
     print("🗺️  AI-POWERED NEARBY PLACES SEARCH")
     print("=" * 60)
     
     city_name = input("\n📍 Enter city name: ").strip()
     preferences = input("❤️  What do you like? (e.g., coffee, museums, parks): ").strip()
+    topic = input("🏷️  Topic (leave empty for transient session): ").strip()
     
     if not city_name or not preferences:
-        print("❌ Both fields are required!")
-        return None, None
+        print("❌ City and preferences are required!")
+        return None, None, None
     
-    return city_name, preferences
+    return city_name, preferences, topic if topic else None
 
 
 async def main():
@@ -567,16 +595,16 @@ async def main():
         logging.info("✅ Environment loaded")
         
         # Get user input
-        city_name, preferences = get_user_input()
+        city_name, preferences, topic = get_user_input()
         
         if not city_name or not preferences:
             logging.warning("⚠️ User input incomplete - exiting")
             return
         
-        logging.info(f"📍 User query: city={city_name}, preferences={preferences}")
+        logging.info(f"📍 User query: city={city_name}, preferences={preferences}, topic={topic or 'transient'}")
         
-        # Search for places
-        response = await search_places(city_name, preferences)
+        # Search for places with optional topic
+        response = await search_places(city_name, preferences, topic=topic)
         
         # Print results
         print_response(response)

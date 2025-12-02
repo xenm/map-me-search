@@ -1,0 +1,155 @@
+name: Deploy Agent to Vertex AI & Frontend to Hugging Face
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'agent/**'
+      - 'frontend/**'
+      - '.github/workflows/deploy.yaml'
+  workflow_dispatch:
+    inputs:
+      deploy_vertex:
+        description: 'Deploy to Vertex AI'
+        type: boolean
+        default: true
+      deploy_huggingface:
+        description: 'Deploy to Hugging Face'
+        type: boolean
+        default: true
+
+env:
+  PYTHON_VERSION: '3.14'
+  GCP_REGION: 'europe-west4'  # Change to your preferred region
+
+jobs:
+  # ============================================================================
+  # JOB 1: Deploy the Agent "Brain" to Vertex AI
+  # ============================================================================
+  deploy-vertex-ai:
+    name: Deploy Agent to Vertex AI
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event.inputs.deploy_vertex == 'true' }}
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install ADK and Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-adk google-genai
+          if [ -f agent/requirements.txt ]; then pip install -r agent/requirements.txt; fi
+
+      - name: Create .env file for deployment
+        run: |
+          echo "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" > agent/.env
+          echo "GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}" >> agent/.env
+          echo "GOOGLE_CLOUD_LOCATION=${{ env.GCP_REGION }}" >> agent/.env
+
+      - name: Deploy to Vertex AI Agent Engine
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          REGION: ${{ env.GCP_REGION }}
+        run: |
+          echo "🚀 Deploying agent to Vertex AI Agent Engine..."
+          adk deploy agent_engine \
+            --project $PROJECT_ID \
+            --region $REGION \
+            agent \
+            --requirements_file agent/requirements.txt \
+            --agent_engine_config_file agent/.agent_engine_config.json
+          echo "✅ Deployment to Vertex AI completed!"
+
+  # ============================================================================
+  # JOB 2: Deploy the Mini-Frontend to Hugging Face Spaces
+  # ============================================================================
+  deploy-huggingface:
+    name: Deploy Frontend to Hugging Face
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event.inputs.deploy_huggingface == 'true' }}
+    # Optional: Wait for Vertex AI deployment to complete
+    # needs: deploy-vertex-ai
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Git LFS
+        run: git lfs install
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+      - name: Create .env for Hugging Face
+        run: |
+          cd frontend
+          echo "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" > .env
+          echo "VERTEX_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" >> .env
+          echo "VERTEX_LOCATION=${{ env.GCP_REGION }}" >> .env
+          # If you have a deployed agent resource ID, add it here:
+          # echo "VERTEX_AGENT_RESOURCE_ID=${{ secrets.VERTEX_AGENT_RESOURCE_ID }}" >> .env
+
+      - name: Push to Hugging Face Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
+        run: |
+          echo "🚀 Deploying frontend to Hugging Face Spaces..."
+          cd frontend
+          
+          # Initialize git repo for the frontend folder
+          rm -rf .git  # Clean any existing git
+          git init
+          git add .
+          git commit -m "Deploy from GitHub Actions - $(date '+%Y-%m-%d %H:%M:%S')"
+          
+          # Push to Hugging Face Space
+          git push --force https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME main
+          
+          echo "✅ Deployment to Hugging Face completed!"
+          echo "🌐 Visit: https://huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME"
+
+  # ============================================================================
+  # JOB 3: Summary Job
+  # ============================================================================
+  deployment-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [deploy-vertex-ai, deploy-huggingface]
+    if: always()
+
+    steps:
+      - name: Summary
+        run: |
+          echo "==================== DEPLOYMENT SUMMARY ===================="
+          echo ""
+          echo "🧠 Vertex AI Agent: ${{ needs.deploy-vertex-ai.result }}"
+          echo "🎨 Hugging Face Frontend: ${{ needs.deploy-huggingface.result }}"
+          echo ""
+          echo "============================================================"
