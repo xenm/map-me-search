@@ -245,7 +245,8 @@ def initialize_services(topic: Optional[str] = None):
         try:
             db_url = "sqlite:///places_search_sessions.db"
             session_service = DatabaseSessionService(db_url=db_url)
-            logger.info(f"DatabaseSessionService initialized for topic '{topic}'")
+            topic_sanitized = topic.replace('\r', '').replace('\n', '')
+            logger.info(f"DatabaseSessionService initialized for topic '{topic_sanitized}'")
         except Exception as e:
             logger.warning(f"DatabaseSessionService failed: {e}, falling back to InMemory")
             session_service = InMemorySessionService()
