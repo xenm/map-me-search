@@ -276,6 +276,12 @@ def create_app(root_agent, plugins=None):
     return app
 
 
+# Sanitize strings before logging to prevent log injection
+def _sanitize_log_str(s):
+    if s is None:
+        return ''
+    return str(s).replace('\r', '').replace('\n', '')
+
 async def search_places(
     city_name: str,
     preferences: str,
@@ -294,7 +300,10 @@ async def search_places(
     Returns:
         String with formatted recommendations
     """
-    logger.info(f"Searching in {city_name} for '{preferences}' (topic: {topic or 'transient'})")
+    city_name_clean = _sanitize_log_str(city_name)
+    preferences_clean = _sanitize_log_str(preferences)
+    topic_clean = _sanitize_log_str(topic) if topic is not None else 'transient'
+    logger.info(f"Searching in {city_name_clean} for '{preferences_clean}' (topic: {topic_clean})")
     
     # Initialize agent and services
     agent = initialize_multi_agent_system()
