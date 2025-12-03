@@ -236,7 +236,9 @@ def initialize_services(topic: Optional[str] = None):
     Returns:
         Tuple of (session_service, memory_service)
     """
-    logger.info(f"Initializing services with topic: {topic or 'None (transient)'}")
+    topic_str = topic if topic is not None else 'None (transient)'
+    topic_str = topic_str.replace('\r', '').replace('\n', '')
+    logger.info(f"Initializing services with topic: {topic_str}")
     
     if topic:
         # PERSISTENT: Use database for topic-based sessions
