@@ -22,6 +22,7 @@ from google.adk.apps.app import App, EventsCompactionConfig
 from google.adk.plugins.logging_plugin import LoggingPlugin
 from google.genai import types
 from typing import Any, Dict, Optional
+from utils.scoring_tools import calculate_distance_score, get_place_category_boost
 
 # Load environment variables
 load_dotenv()
@@ -40,61 +41,7 @@ GEMINI_MODEL = "gemini-2.5-flash"
 # ============================================================================
 # Custom Function Tools
 # ============================================================================
-
-def calculate_distance_score(distance_km: float) -> dict:
-    """Calculates a relevance score based on distance from city center.
-    
-    Args:
-        distance_km: Distance in kilometers from city center
-        
-    Returns:
-        Dictionary with status and score.
-    """
-    if distance_km < 0:
-        return {"status": "error", "error_message": "Distance cannot be negative"}
-    
-    if distance_km <= 1:
-        score = 10
-    elif distance_km <= 3:
-        score = 8
-    elif distance_km <= 5:
-        score = 6
-    elif distance_km <= 10:
-        score = 4
-    else:
-        score = 2
-    
-    return {"status": "success", "score": score, "distance_km": distance_km}
-
-
-def get_place_category_boost(category: str, preferences: str) -> dict:
-    """Calculates a boost score based on how well a category matches preferences.
-    
-    Args:
-        category: Category of the place
-        preferences: User's stated preferences
-        
-    Returns:
-        Dictionary with status and boost score.
-    """
-    category = category.lower()
-    preferences = preferences.lower()
-    
-    if category in preferences or preferences in category:
-        return {"status": "success", "boost": 3, "reason": "Direct match"}
-    
-    food_related = ["restaurant", "cafe", "coffee", "bar", "food"]
-    culture_related = ["museum", "gallery", "theater", "art"]
-    outdoor_related = ["park", "garden", "hiking", "beach"]
-    
-    if category in food_related and any(term in preferences for term in food_related):
-        return {"status": "success", "boost": 2, "reason": "Food-related match"}
-    if category in culture_related and any(term in preferences for term in culture_related):
-        return {"status": "success", "boost": 2, "reason": "Culture-related match"}
-    if category in outdoor_related and any(term in preferences for term in outdoor_related):
-        return {"status": "success", "boost": 2, "reason": "Outdoor-related match"}
-    
-    return {"status": "success", "boost": 0, "reason": "No special match"}
+# NOTE: calculate_distance_score and get_place_category_boost are now imported from utils.scoring_tools
 
 
 def save_user_preferences(tool_context: ToolContext, city: str, preferences: str) -> Dict[str, Any]:
