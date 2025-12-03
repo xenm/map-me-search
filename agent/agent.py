@@ -33,6 +33,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Constants
+GEMINI_MODEL = "gemini-2.5-flash"
+
 
 # ============================================================================
 # Custom Function Tools
@@ -126,7 +129,7 @@ def initialize_multi_agent_system():
     # Research Agent
     research_agent = LlmAgent(
         name="ResearchAgent",
-        model=Gemini(model="gemini-2.5-flash", retry_options=retry_config),
+        model=Gemini(model=GEMINI_MODEL, retry_options=retry_config),
         instruction="""
 You are a specialized research agent. Your only job is to use the google_search tool 
 to find relevant places, attractions, restaurants, and activities.
@@ -146,7 +149,7 @@ Present your findings as structured data with clear details for each place.""",
     # Calculation Agent
     calculation_agent = LlmAgent(
         name="CalculationAgent",
-        model=Gemini(model="gemini-2.5-flash", retry_options=retry_config),
+        model=Gemini(model=GEMINI_MODEL, retry_options=retry_config),
         instruction="""You are a specialized calculator that ONLY responds with Python code.
         
 Your task is to take scoring data and calculate final relevance scores.
@@ -166,7 +169,7 @@ Generate Python code that calculates weighted scores based on the provided data.
     # Filter Agent
     filter_agent = LlmAgent(
         name="FilterAgent",
-        model=Gemini(model="gemini-2.5-flash", retry_options=retry_config),
+        model=Gemini(model=GEMINI_MODEL, retry_options=retry_config),
         instruction="""
 You are a filtering and ranking specialist. Review the research findings from the previous agent.
 
@@ -197,7 +200,7 @@ Output a curated list with:
     # Formatter Agent
     formatter_agent = LlmAgent(
         name="FormatterAgent",
-        model=Gemini(model="gemini-2.5-flash", retry_options=retry_config),
+        model=Gemini(model=GEMINI_MODEL, retry_options=retry_config),
         instruction="""
 You are a presentation specialist. Review the filtered and scored places from the previous agent.
 
@@ -318,7 +321,7 @@ async def search_places(
             user_id=user_id,
             session_id=session_id
         )
-    except:
+    except Exception:
         session = await session_service.get_session(
             app_name=app.name,
             user_id=user_id,

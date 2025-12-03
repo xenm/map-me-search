@@ -426,6 +426,50 @@ def create_app_with_compaction(root_agent, plugins=None):
     return app
 
 
+def initialize_plugins(enable_logging_plugin: bool, enable_metrics_plugin: bool):
+    """Initialize observability plugins based on configuration."""
+    plugins = []
+    
+    if enable_logging_plugin:
+        plugins.append(LoggingPlugin())
+        logging.info("🔌 LoggingPlugin enabled for comprehensive observability")
+    
+    if enable_metrics_plugin and METRICS_PLUGIN_AVAILABLE:
+        global _metrics_plugin_instance
+        _metrics_plugin_instance = MetricsTrackingPlugin()
+        plugins.append(_metrics_plugin_instance)
+        logging.info("🔌 MetricsTrackingPlugin enabled for performance metrics")
+    
+    return plugins
+
+
+def generate_session_id(user_id: str, topic: Optional[str]) -> str:
+    """Generate session ID based on topic for persistence or transient use."""
+    if topic:
+        return f"{user_id}::{topic}"
+    else:
+        return f"{user_id}::temp::{uuid.uuid4()}"
+
+
+async def create_or_retrieve_session(session_service, app_name: str, user_id: str, session_id: str):
+    """Create new session or retrieve existing one."""
+    try:
+        session = await session_service.create_session(
+            app_name=app_name,
+            user_id=user_id,
+            session_id=session_id
+        )
+        print("✅ New session created")
+    except Exception:
+        session = await session_service.get_session(
+            app_name=app_name,
+            user_id=user_id,
+            session_id=session_id
+        )
+        print("✅ Existing session retrieved")
+    return session
+
+
 async def search_places(
     city_name: str, 
     preferences: str, 
@@ -463,16 +507,7 @@ async def search_places(
     session_service, memory_service = initialize_services(topic)
     
     # Create plugins list for observability (Day 4a)
-    plugins = []
-    
-    if enable_logging_plugin:
-        plugins.append(LoggingPlugin())
-        logging.info("🔌 LoggingPlugin enabled for comprehensive observability")
-    
-    if enable_metrics_plugin and METRICS_PLUGIN_AVAILABLE:
-        _metrics_plugin_instance = MetricsTrackingPlugin()
-        plugins.append(_metrics_plugin_instance)
-        logging.info("🔌 MetricsTrackingPlugin enabled for performance metrics")
+    plugins = initialize_plugins(enable_logging_plugin, enable_metrics_plugin)
     
     # Create App with context compaction and plugins (Day 4a: plugins go in App, not Runner)
     app = create_app_with_compaction(agent, plugins=plugins)
@@ -485,30 +520,12 @@ async def search_places(
     )
     
     # Generate session ID based on topic
-    # If topic provided: stable ID for persistence
-    # If no topic: random UUID for transient session
-    if topic:
-        session_id = f"{user_id}::{topic}"
-    else:
-        session_id = f"{user_id}::temp::{uuid.uuid4()}"
+    session_id = generate_session_id(user_id, topic)
     
     print(f"\n📱 Session ID: {session_id}")
     
     # Create or retrieve session
-    try:
-        session = await session_service.create_session(
-            app_name=app.name,
-            user_id=user_id,
-            session_id=session_id
-        )
-        print("✅ New session created")
-    except:
-        session = await session_service.get_session(
-            app_name=app.name,
-            user_id=user_id,
-            session_id=session_id
-        )
-        print("✅ Existing session retrieved")
+    session = await create_or_retrieve_session(session_service, app.name, user_id, session_id)
     
     # Create a search prompt
     prompt = (
