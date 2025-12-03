@@ -6,5 +6,8 @@ version: "1.0"
 linter: jetbrains/qodana-python-community:2025.2
 profile:
   name: qodana.recommended
-include:
-  - name: CheckDependencyLicenses
+# REMOVED:
+# include:
+#   - name: CheckDependencyLicenses
+# Why? This inspection is NOT available in the free Community version.
+# Keeping it will cause the "Linters have stopped operating" or "Feature not available" error.
