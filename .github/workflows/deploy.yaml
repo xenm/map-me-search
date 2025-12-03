@@ -61,9 +61,12 @@ jobs:
           if [ -f agent/requirements.txt ]; then pip install -r agent/requirements.txt; fi
 
       - name: Create .env file for deployment
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
-          echo "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" > agent/.env
-          echo "GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}" >> agent/.env
+          echo "GOOGLE_API_KEY=$GOOGLE_API_KEY" > agent/.env
+          echo "GOOGLE_CLOUD_PROJECT=$GCP_PROJECT_ID" >> agent/.env
           echo "GOOGLE_CLOUD_LOCATION=${{ env.GCP_REGION }}" >> agent/.env
 
       - name: Deploy to Vertex AI Agent Engine
@@ -164,10 +167,13 @@ jobs:
           git config --global user.name "GitHub Actions"
 
       - name: Create .env for Hugging Face
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
           cd frontend
-          echo "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" > .env
-          echo "VERTEX_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" >> .env
+          echo "GOOGLE_API_KEY=$GOOGLE_API_KEY" > .env
+          echo "VERTEX_PROJECT_ID=$GCP_PROJECT_ID" >> .env
           echo "VERTEX_LOCATION=${{ env.GCP_REGION }}" >> .env
           echo "VERTEX_AGENT_RESOURCE_ID=${{ needs.deploy-vertex-ai.outputs.agent_resource_id }}" >> .env
 
@@ -208,10 +214,12 @@ jobs:
         uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
 
       - name: List Available Deployments for Rollback
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
           echo "⚠️ Deployment failed! Available reasoning engines for rollback:"
           gcloud ai reasoning-engines list \
-            --project=${{ secrets.GCP_PROJECT_ID }} \
+            --project=$GCP_PROJECT_ID \
             --region=${{ env.GCP_REGION }} \
             --format="table(name,displayName,createTime)" || echo "Could not list engines"
           
