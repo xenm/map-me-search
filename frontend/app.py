@@ -72,7 +72,8 @@ async def search_with_topic(
     topic_cleaned = topic.strip() if topic else None
     
     if topic_cleaned:
-        logger.info(f"🗄️ Using DatabaseSessionService for topic: '{topic_cleaned}'")
+        sanitized_topic = topic_cleaned.replace('\n', '').replace('\r', '')
+        logger.info(f"🗄️ Using DatabaseSessionService for topic: '{sanitized_topic}'")
     else:
         logger.info("🚀 Using InMemorySessionService (transient mode)")
     
