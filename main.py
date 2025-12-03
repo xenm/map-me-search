@@ -12,6 +12,12 @@ import logging
 import uuid
 from typing import Any, Dict, Optional
 from dotenv import load_dotenv
+
+def sanitize_for_log(s: Optional[str]) -> str:
+    """Remove newlines and carriage returns from user input for safe logging."""
+    if s is None:
+        return ""
+    return s.replace('\r\n', '').replace('\n', '').replace('\r', '')
 from google.adk.agents import LlmAgent, SequentialAgent
 from google.adk.models.google_llm import Gemini
 from google.adk.runners import Runner
@@ -370,7 +376,7 @@ def initialize_services(topic: Optional[str] = None):
         try:
             session_service = DatabaseSessionService(db_url=db_url)
             print(f"✅ DatabaseSessionService initialized for topic '{topic}': {db_url}")
-            logging.info(f"DatabaseSessionService initialized for topic '{topic}': {db_url}")
+            logging.info(f"DatabaseSessionService initialized for topic '{sanitize_for_log(topic)}': {db_url}")
         except Exception as e:
             # Fallback to InMemorySessionService if database fails
             python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
@@ -618,7 +624,9 @@ async def main():
             logging.warning("⚠️ User input incomplete - exiting")
             return
         
-        logging.info(f"📍 User query: city={city_name}, preferences={preferences}, topic={topic or 'transient'}")
+        logging.info(
+            f"📍 User query: city={sanitize_for_log(city_name)}, preferences={sanitize_for_log(preferences)}, topic={sanitize_for_log(topic) if topic else 'transient'}"
+        )
         
         # Search for places with optional topic
         response = await search_places(city_name, preferences, topic=topic)

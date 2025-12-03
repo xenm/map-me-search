@@ -239,14 +239,17 @@ def initialize_services(topic: Optional[str] = None):
     Returns:
         Tuple of (session_service, memory_service)
     """
-    logger.info(f"Initializing services with topic: {topic or 'None (transient)'}")
+    topic_str = topic if topic is not None else 'None (transient)'
+    topic_str = topic_str.replace('\r', '').replace('\n', '')
+    logger.info(f"Initializing services with topic: {topic_str}")
     
     if topic:
         # PERSISTENT: Use database for topic-based sessions
         try:
             db_url = "sqlite:///places_search_sessions.db"
             session_service = DatabaseSessionService(db_url=db_url)
-            logger.info(f"DatabaseSessionService initialized for topic '{topic}'")
+            topic_sanitized = topic.replace('\r', '').replace('\n', '')
+            logger.info(f"DatabaseSessionService initialized for topic '{topic_sanitized}'")
         except Exception as e:
             logger.warning(f"DatabaseSessionService failed: {e}, falling back to InMemory")
             session_service = InMemorySessionService()
@@ -276,6 +279,12 @@ def create_app(root_agent, plugins=None):
     return app
 
 
+# Sanitize strings before logging to prevent log injection
+def _sanitize_log_str(s):
+    if s is None:
+        return ''
+    return str(s).replace('\r', '').replace('\n', '')
+
 async def search_places(
     city_name: str,
     preferences: str,
@@ -294,7 +303,10 @@ async def search_places(
     Returns:
         String with formatted recommendations
     """
-    logger.info(f"Searching in {city_name} for '{preferences}' (topic: {topic or 'transient'})")
+    city_name_clean = _sanitize_log_str(city_name)
+    preferences_clean = _sanitize_log_str(preferences)
+    topic_clean = _sanitize_log_str(topic) if topic is not None else 'transient'
+    logger.info(f"Searching in {city_name_clean} for '{preferences_clean}' (topic: {topic_clean})")
     
     # Initialize agent and services
     agent = initialize_multi_agent_system()
