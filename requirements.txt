@@ -11,4 +11,4 @@ pytest>=7.0.0
 gradio>=4.0.0
 
 # Observability
-opentelemetry-instrumentation-google-genai>=0.1.0
+opentelemetry-instrumentation-google-genai>=0.4b0
