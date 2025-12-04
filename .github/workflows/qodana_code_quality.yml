@@ -35,7 +35,7 @@ jobs:
           QODANA_ENDPOINT: 'https://qodana.cloud' # Keep this if you want, but without token it's ignored.
 
       - name: 'Upload SARIF to GitHub'
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ${{ runner.temp }}/qodana/results/qodana.sarif.json
           category: qodana
