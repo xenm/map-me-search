@@ -235,6 +235,7 @@ jobs:
   # ============================================================================
   deployment-summary:
     name: Deployment Summary
+    permissions: {}
     runs-on: ubuntu-latest
     needs: [deploy-vertex-ai, deploy-huggingface]
     if: always()
