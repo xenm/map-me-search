@@ -28,18 +28,44 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 if not GOOGLE_API_KEY:
     logger.warning("⚠️ GOOGLE_API_KEY not found. Set it in .env or environment variables.")
 
-# Try to import the agent module
+# Check for Vertex AI deployment configuration
+VERTEX_AGENT_RESOURCE_ID = os.environ.get("VERTEX_AGENT_RESOURCE_ID")
+VERTEX_PROJECT_ID = os.environ.get("VERTEX_PROJECT_ID")
+VERTEX_LOCATION = os.environ.get("VERTEX_LOCATION")
+
+# Determine if we should use deployed Vertex AI agent
+USE_VERTEX_AI = all([VERTEX_AGENT_RESOURCE_ID, VERTEX_PROJECT_ID, VERTEX_LOCATION])
+if USE_VERTEX_AI:
+    logger.info(f"✅ Using Vertex AI Agent: {VERTEX_AGENT_RESOURCE_ID}")
+else:
+    logger.info("🔧 Using local agent module for development")
+
+# Try to import the agent module (for local development)
 try:
     import sys
     # Add parent directory to path if running locally
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
     from agent.agent import search_places, initialize_services, initialize_multi_agent_system
-    AGENT_AVAILABLE = True
-    logger.info("✅ Agent module loaded successfully")
+    LOCAL_AGENT_AVAILABLE = True
+    logger.info("✅ Local agent module loaded successfully")
 except ImportError as e:
-    AGENT_AVAILABLE = False
-    logger.warning(f"⚠️ Agent module not available: {e}")
-    logger.info("Running in demo mode - agent calls will be simulated")
+    LOCAL_AGENT_AVAILABLE = False
+    logger.warning(f"⚠️ Local agent module not available: {e}")
+
+# Try to import Vertex AI (for deployed agent)
+VERTEX_AI_AVAILABLE = False
+if USE_VERTEX_AI:
+    try:
+        import vertexai
+        from vertexai.preview import reasoning_engines
+        VERTEX_AI_AVAILABLE = True
+        logger.info("✅ Vertex AI modules loaded successfully")
+    except ImportError as e:
+        logger.warning(f"⚠️ Vertex AI modules not available: {e}")
+        logger.warning("Please install: pip install vertexai google-cloud-aiplatform")
+
+# Determine overall agent availability
+AGENT_AVAILABLE = USE_VERTEX_AI or LOCAL_AGENT_AVAILABLE
 
 
 # ============================================================================
@@ -76,24 +102,17 @@ async def search_with_topic(
     else:
         logger.info("🚀 Using InMemorySessionService (transient mode)")
     
-    if AGENT_AVAILABLE:
-        try:
-            result = await search_places(
-                city_name=city,
-                preferences=preferences,
-                topic=topic_cleaned,
-                user_id=user_id
-            )
-            return result
-        except (ValueError, RuntimeError, ConnectionError, ImportError) as e:
-            logger.error(f"Search error: {e}")
-            return f"❌ Error during search: {str(e)}"
+    # Choose execution method based on availability
+    if USE_VERTEX_AI and VERTEX_AI_AVAILABLE:
+        return await search_with_vertex_ai(city, preferences, topic_cleaned, user_id)
+    elif LOCAL_AGENT_AVAILABLE:
+        return await search_with_local_agent(city, preferences, topic_cleaned, user_id)
     else:
         # Demo mode response
         return f"""
 🎯 **Demo Mode Response**
 
-Since the agent module is not available, here's a simulated response:
+Since no agent is available, here's a simulated response:
 
 📍 **City**: {city}
 ❤️ **Preferences**: {preferences}
@@ -109,8 +128,64 @@ In production, this would call the Vertex AI Agent Engine to get real recommenda
 
 To enable full functionality:
 1. Set `GOOGLE_API_KEY` environment variable
-2. Ensure the agent module is properly installed
+2. For local development: ensure the agent module is properly installed
+3. For production: ensure VERTEX_AGENT_RESOURCE_ID, VERTEX_PROJECT_ID, and VERTEX_LOCATION are set
 """
+
+
+async def search_with_vertex_ai(
+    city: str,
+    preferences: str,
+    topic: Optional[str],
+    user_id: str
+) -> str:
+    """Search using deployed Vertex AI Agent Engine."""
+    try:
+        # Initialize Vertex AI
+        vertexai.init(project=VERTEX_PROJECT_ID, location=VERTEX_LOCATION)
+        
+        # Load the deployed agent
+        agent = reasoning_engines.ReasoningEngine(VERTEX_AGENT_RESOURCE_ID)
+        
+        # Create prompt (similar to local agent)
+        prompt = (
+            f"Find nearby places in {city} for someone who likes {preferences}. "
+            f"Provide specific recommendations with names, brief descriptions, and why they would enjoy them."
+        )
+        
+        # Add topic context if provided
+        if topic:
+            prompt += f"\n\nThis search is part of the topic: {topic}. Please consider this context for consistency."
+        
+        # Query the deployed agent
+        response = agent.query(input=prompt)
+        
+        logger.info("✅ Vertex AI agent query successful")
+        return response
+        
+    except Exception as e:
+        logger.error(f"Vertex AI agent query failed: {e}")
+        return f"❌ Error calling Vertex AI agent: {str(e)}"
+
+
+async def search_with_local_agent(
+    city: str,
+    preferences: str,
+    topic: Optional[str],
+    user_id: str
+) -> str:
+    """Search using local agent module."""
+    try:
+        result = await search_places(
+            city_name=city,
+            preferences=preferences,
+            topic=topic,
+            user_id=user_id
+        )
+        return result
+    except (ValueError, RuntimeError, ConnectionError, ImportError) as e:
+        logger.error(f"Local agent search error: {e}")
+        return f"❌ Error during search: {str(e)}"
 
 
 def sync_search(city: str, preferences: str, topic: str) -> str:

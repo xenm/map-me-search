@@ -96,6 +96,7 @@ jobs:
             RESOURCE_ID=$(gcloud ai reasoning-engines list \
               --project=$PROJECT_ID \
               --region=$REGION \
+              --sort-by="~createTime" \
               --format="value(name)" \
               --limit=1 2>/dev/null || echo "")
           fi
