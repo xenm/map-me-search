@@ -399,13 +399,17 @@ async def create_or_retrieve_session(session_service, app_name: str, user_id: st
             session_id=session_id
         )
         print("✅ New session created")
-    except Exception:
-        session = await session_service.get_session(
-            app_name=app_name,
-            user_id=user_id,
-            session_id=session_id
-        )
-        print("✅ Existing session retrieved")
+    except (ValueError, RuntimeError, ConnectionError) as e:
+        # Session likely exists, try to retrieve it
+        try:
+            session = await session_service.get_session(
+                app_name=app_name,
+                user_id=user_id,
+                session_id=session_id
+            )
+            print("✅ Existing session retrieved")
+        except (ValueError, RuntimeError, ConnectionError) as retrieve_error:
+            raise RuntimeError(f"Failed to create or retrieve session: {retrieve_error}")
     return session
 
 
@@ -495,7 +499,7 @@ async def search_places(
         try:
             await memory_service.add_session_to_memory(session)
             print(f"\n💾 Session saved to memory for topic '{topic}'")
-        except Exception as e:
+        except (ValueError, RuntimeError, ConnectionError) as e:
             print(f"\n⚠️ Memory save failed: {e}")
     else:
         print("\n🚀 Transient session - skipping memory save")
@@ -574,7 +578,7 @@ async def main():
     except ValueError as e:
         logging.error(f"❌ Configuration Error: {e}")
         print(f"\n❌ Configuration Error: {e}")
-    except Exception as e:
+    except (ImportError, RuntimeError, ConnectionError) as e:
         logging.exception(f"❌ Unexpected error: {e}")
         print(f"\n❌ Error: {e}")
         import traceback

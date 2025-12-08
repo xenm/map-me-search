@@ -197,7 +197,7 @@ def initialize_services(topic: Optional[str] = None):
             session_service = DatabaseSessionService(db_url=db_url)
             topic_sanitized = topic.replace('\r', '').replace('\n', '')
             logger.info(f"DatabaseSessionService initialized for topic '{topic_sanitized}'")
-        except Exception as e:
+        except (ValueError, RuntimeError, ConnectionError) as e:
             logger.warning(f"DatabaseSessionService failed: {e}, falling back to InMemory")
             session_service = InMemorySessionService()
     else:
@@ -280,12 +280,16 @@ async def search_places(
             user_id=user_id,
             session_id=session_id
         )
-    except Exception:
-        session = await session_service.get_session(
-            app_name=app.name,
-            user_id=user_id,
-            session_id=session_id
-        )
+    except (ValueError, RuntimeError, ConnectionError):
+        # Session likely exists, try to retrieve it
+        try:
+            session = await session_service.get_session(
+                app_name=app.name,
+                user_id=user_id,
+                session_id=session_id
+            )
+        except (ValueError, RuntimeError, ConnectionError) as retrieve_error:
+            raise RuntimeError(f"Failed to create or retrieve session: {retrieve_error}")
     
     # Create prompt
     prompt = (
@@ -312,7 +316,7 @@ async def search_places(
         try:
             await memory_service.add_session_to_memory(session)
             logger.info("Session saved to memory")
-        except Exception as e:
+        except (ValueError, RuntimeError, ConnectionError) as e:
             logger.warning(f"Memory save failed: {e}")
     
     return final_text

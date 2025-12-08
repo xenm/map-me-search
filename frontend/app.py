@@ -9,10 +9,9 @@ Features:
 """
 
 import os
-import uuid
 import asyncio
 import logging
-from typing import Optional, Tuple, List
+from typing import Optional
 
 import gradio as gr
 from dotenv import load_dotenv
@@ -86,7 +85,7 @@ async def search_with_topic(
                 user_id=user_id
             )
             return result
-        except Exception as e:
+        except (ValueError, RuntimeError, ConnectionError, ImportError) as e:
             logger.error(f"Search error: {e}")
             return f"❌ Error during search: {str(e)}"
     else:
