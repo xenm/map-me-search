@@ -36,7 +36,8 @@ VERTEX_LOCATION = os.environ.get("VERTEX_LOCATION")
 # Determine if we should use deployed Vertex AI agent
 USE_VERTEX_AI = all([VERTEX_AGENT_RESOURCE_ID, VERTEX_PROJECT_ID, VERTEX_LOCATION])
 if USE_VERTEX_AI:
-    logger.info(f"✅ Using Vertex AI Agent: {VERTEX_AGENT_RESOURCE_ID}")
+    safe_agent_id = VERTEX_AGENT_RESOURCE_ID.replace('\r', '').replace('\n', '') if VERTEX_AGENT_RESOURCE_ID else ''
+    logger.info(f"✅ Using Vertex AI Agent: {safe_agent_id}")
 else:
     logger.info("🔧 Using local agent module for development")
 
