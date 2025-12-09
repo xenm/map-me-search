@@ -41,10 +41,10 @@ jobs:
         uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
         with:
           # Option 1: Workload Identity Federation (recommended - keyless)
-          # workload_identity_provider: '${{ secrets.WIF_PROVIDER }}'
-          # service_account: '${{ secrets.WIF_SERVICE_ACCOUNT }}'
+          workload_identity_provider: '${{ secrets.WIF_PROVIDER }}'
+          service_account: '${{ secrets.WIF_SERVICE_ACCOUNT }}'
           # Option 2: Service Account Key (fallback)
-          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+          # credentials_json: ${{ secrets.GCP_CREDENTIALS }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
@@ -60,20 +60,14 @@ jobs:
           pip install google-adk google-genai google-cloud-aiplatform
           if [ -f agent/requirements.txt ]; then pip install -r agent/requirements.txt; fi
 
-      - name: Create .env file for deployment
-        env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-        run: |
-          echo "GOOGLE_API_KEY=$GOOGLE_API_KEY" > agent/.env
-          echo "GOOGLE_CLOUD_PROJECT=$GCP_PROJECT_ID" >> agent/.env
-          echo "GOOGLE_CLOUD_LOCATION=${{ env.GCP_REGION }}" >> agent/.env
-
       - name: Deploy to Vertex AI Agent Engine
         id: vertex_deploy
         env:
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           REGION: ${{ env.GCP_REGION }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+          GOOGLE_CLOUD_LOCATION: ${{ env.GCP_REGION }}
         run: |
           echo "🚀 Deploying agent to Vertex AI Agent Engine..."
           
@@ -83,23 +77,12 @@ jobs:
             --region $REGION \
             agent \
             --requirements_file agent/requirements.txt \
-            --agent_engine_config_file agent/.agent_engine_config.json 2>&1) || true
+            --agent_engine_config_file agent/.agent_engine_config.json 2>&1)
           
           echo "$DEPLOY_OUTPUT"
           
           # Extract Resource ID (format: projects/.../locations/.../reasoningEngines/...)
           RESOURCE_ID=$(echo "$DEPLOY_OUTPUT" | grep -oE 'projects/[0-9]+/locations/[a-z0-9-]+/reasoningEngines/[0-9]+' | head -1)
-          
-          if [ -z "$RESOURCE_ID" ]; then
-            echo "⚠️ Could not extract Resource ID from output. Checking existing deployments..."
-            # Fallback: list existing engines and get the latest
-            RESOURCE_ID=$(gcloud ai reasoning-engines list \
-              --project=$PROJECT_ID \
-              --region=$REGION \
-              --sort-by="~createTime" \
-              --format="value(name)" \
-              --limit=1 2>/dev/null || echo "")
-          fi
           
           if [ -z "$RESOURCE_ID" ]; then
             echo "❌ Failed to obtain Agent Resource ID!"
@@ -137,8 +120,8 @@ jobs:
               sys.exit(0)
           except Exception as e:
               print(f"⚠️ Health check warning: {e}")
-              print("Agent may still be initializing. Continuing...")
-              sys.exit(0)  # Don't fail the build on health check
+              print("Agent check failed.")
+              sys.exit(1)
           EOF
 
   # ============================================================================
@@ -169,16 +152,26 @@ jobs:
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
 
-      - name: Create .env for Hugging Face
+      - name: Update Hugging Face Configuration
         env:
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          # Get the ID from the previous job
+          AGENT_ID: ${{ needs.deploy-vertex-ai.outputs.agent_resource_id }}
         run: |
-          cd frontend
-          echo "GOOGLE_API_KEY=$GOOGLE_API_KEY" > .env
-          echo "VERTEX_PROJECT_ID=$GCP_PROJECT_ID" >> .env
-          echo "VERTEX_LOCATION=${{ env.GCP_REGION }}" >> .env
-          echo "VERTEX_AGENT_RESOURCE_ID=${{ needs.deploy-vertex-ai.outputs.agent_resource_id }}" >> .env
+          pip install huggingface_hub
+          python -c "
+          from huggingface_hub import HfApi
+          api = HfApi(token='${HF_TOKEN}')
+          # Update the variable dynamically
+          api.add_space_variable(
+              repo_id=f'{HF_USERNAME}/{SPACE_NAME}',
+              key='VERTEX_AGENT_RESOURCE_ID',
+              value='${AGENT_ID}'
+          )
+          print('✅ Updated VERTEX_AGENT_RESOURCE_ID in Hugging Face Space settings')
+          "
 
       - name: Push to Hugging Face Hub
         env:
@@ -206,13 +199,16 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy-vertex-ai]
     if: failure()
-    permissions: {}
+    permissions:
+      contents: 'read'
+      id-token: 'write'
 
     steps:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
         with:
-          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+          workload_identity_provider: '${{ secrets.WIF_PROVIDER }}'
+          service_account: '${{ secrets.WIF_SERVICE_ACCOUNT }}'
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
