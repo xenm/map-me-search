@@ -23,7 +23,7 @@ jobs:
           # Why? The default checkout is safer. Overriding 'ref' breaks 'push' events (like merging to main).
 
       - name: 'Qodana Scan'
-        uses: JetBrains/qodana-action@v2025.2
+        uses: JetBrains/qodana-action@v2025.3
         with:
           pr-mode: false
           # IMPORTANT: We force the community linter here to be safe
