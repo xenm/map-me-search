@@ -78,7 +78,6 @@ Add these secrets:
 |-------------|-------------|
 | `GCP_CREDENTIALS` | Content of the `key.json` file |
 | `GCP_PROJECT_ID` | Your Google Cloud project ID |
-| `GOOGLE_API_KEY` | Your Google AI API key (for Gemini) |
 | `HF_TOKEN` | Hugging Face access token |
 | `HF_USERNAME` | Your Hugging Face username |
 | `HF_SPACE_NAME` | Name of your Hugging Face Space |
@@ -172,7 +171,7 @@ python frontend/app.py
 
 1. **ADK deployment fails**
    - Check service account permissions
-   - Verify `GOOGLE_API_KEY` is set correctly
+   - Verify GitHub Actions auth (WIF/service account) is configured correctly
    - Check region availability for Agent Engine
 
 2. **Hugging Face deployment fails**

@@ -65,9 +65,6 @@ jobs:
         env:
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           REGION: ${{ env.GCP_REGION }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-          GOOGLE_CLOUD_LOCATION: ${{ env.GCP_REGION }}
         run: |
           echo "🚀 Deploying agent to Vertex AI Agent Engine..."
           

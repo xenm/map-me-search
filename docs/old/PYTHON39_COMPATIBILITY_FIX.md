@@ -1,8 +1,8 @@
-# ✅ Python 3.9 Compatibility Fix Applied
+# ✅ Python Version Requirement Update
 
-## What Was Fixed
+## Current Status
 
-The application now gracefully handles **Python 3.9** by automatically falling back to in-memory sessions when the database service fails.
+This project requires **Python 3.14+**.
 
 ## Before (Crash)
 
@@ -14,13 +14,13 @@ ERROR - ❌ Configuration Error: Failed to create database engine for URL 'sqlit
 [Application Crash]
 ```
 
-## After (Graceful Fallback)
+## Notes
 
 ```
 ✅ Logging configured: Level=INFO, File=places_search.log
 🚀 Application started
-⚠️ Warning: Python 3.9.6 detected
-⚠️ Python 3.10+ is recommended for full compatibility
+⚠️ Warning: Python X.Y.Z detected
+⚠️ Python 3.14+ is recommended for full compatibility
 ⚠️ The app will work with limited features (sessions won't persist)
 
 ✅ Environment loaded
@@ -28,7 +28,7 @@ ERROR - ❌ Configuration Error: Failed to create database engine for URL 'sqlit
 🗄️ Initializing Services...
 ⚠️ DatabaseSessionService failed: [error details]
 ⚠️ Using InMemorySessionService instead (sessions won't persist across restarts)
-💡 Tip: Upgrade to Python 3.10+ (currently using Python 3.9.6)
+💡 Tip: Upgrade to Python 3.14+
 ✅ InMemorySessionService initialized (fallback mode)
 ✅ InMemoryMemoryService initialized
 
@@ -46,9 +46,9 @@ from google.adk.sessions import DatabaseSessionService, InMemorySessionService
 ```python
 def check_python_version():
     """Check Python version and warn if outdated."""
-    if sys.version_info < (3, 10):
+    if sys.version_info < (3, 14):
         print(f"⚠️ Warning: Python {version} detected")
-        print("⚠️ Python 3.10+ is recommended for full compatibility")
+        print("⚠️ Python 3.14+ is recommended for full compatibility")
         print("⚠️ The app will work with limited features (sessions won't persist)")
 ```
 
@@ -83,39 +83,23 @@ async def main():
     ...
 ```
 
-## What Works in Python 3.9
-
-✅ **All Core Features:**
-- Multi-agent system
-- Google Search integration
-- Custom tools (distance scoring, category boost)
-- Code execution
-- Memory service
-- Observability (logs, metrics)
-- Evaluation (tests)
-
-⚠️ **Limited:**
-- Session persistence (uses in-memory only)
-- Sessions don't survive restarts
-
 ## Try It Now
 
 ```bash
-# With Python 3.9
 python main.py
 ```
 
 **Expected output:**
 ```
-⚠️ Warning: Python 3.9.6 detected
-⚠️ Python 3.10+ is recommended for full compatibility
+⚠️ Warning: Python X.Y.Z detected
+⚠️ Python 3.14+ is recommended for full compatibility
 ⚠️ The app will work with limited features (sessions won't persist)
 
 ✅ Environment loaded
 ...
 ⚠️ DatabaseSessionService failed: ...
 ⚠️ Using InMemorySessionService instead (sessions won't persist across restarts)
-💡 Tip: Upgrade to Python 3.10+ (currently using Python 3.9.6)
+💡 Tip: Upgrade to Python 3.14+
 ✅ InMemorySessionService initialized (fallback mode)
 ...
 
@@ -124,14 +108,11 @@ python main.py
 
 ## For Full Features
 
-**Upgrade to Python 3.10+:**
+**Upgrade to Python 3.14+:**
 
 ```bash
-# macOS (Homebrew)
-brew install python@3.11
-
-# Create new venv with Python 3.11
-python3.11 -m venv venv
+# Create new venv with Python 3.14
+python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
@@ -139,7 +120,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-**Expected output (Python 3.10+):**
+**Expected output (Python 3.14+):**
 ```
 ✅ Logging configured: Level=INFO, File=places_search.log
 🚀 Application started
@@ -173,15 +154,13 @@ python main.py
 
 ## Summary
 
-✅ **Application now works with Python 3.9**  
+✅ **Application now works**  
 ✅ **Graceful degradation (fallback to in-memory sessions)**  
 ✅ **Clear warnings and upgrade suggestions**  
 ✅ **All core features still functional**  
 ✅ **Comprehensive documentation added**  
 
-**The app will no longer crash on Python 3.9, but will work with reduced features.**
-
-For the best experience, upgrade to Python 3.10+.
+**For the best experience, use Python 3.14+.**
 
 ---
 

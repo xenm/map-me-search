@@ -21,7 +21,7 @@ echo ""
 
 # Install dependencies
 echo "3️⃣  Installing dependencies..."
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 echo "   ✅ Dependencies installed"
 echo ""
 
@@ -31,8 +31,9 @@ if [ ! -f ".env" ]; then
     cp .env.example .env
     echo "   ✅ .env file created from template"
     echo ""
-    echo "   ⚠️  IMPORTANT: Edit .env and add your GOOGLE_API_KEY"
-    echo "   Get your API key from: https://aistudio.google.com/app/apikey"
+    echo "   ⚠️  IMPORTANT: Edit .env and configure authentication"
+    echo "   - Recommended: Vertex AI (ADC)"
+    echo "   - Alternative: Google AI Studio (API key)"
 else
     echo "   ✅ .env file already exists"
 fi

@@ -26,13 +26,16 @@ This project demonstrates a sophisticated multi-agent system powered by Google's
 
 ```bash
 # 1. Run installation script (macOS/Linux)
+chmod +x install.sh
 ./install.sh
 
-# 2. Add your Google API key to .env file
-# Get key from: https://aistudio.google.com/app/apikey
+# 2. Configure authentication (see .env.example)
+# - Recommended: Vertex AI (ADC)
+# - Alternative: Google AI Studio (API key)
 
 # 3. Run the application
-python3 main.py
+source venv/bin/activate
+python main.py
 ```
 
 ## ✨ Features
@@ -67,18 +70,9 @@ This submission demonstrates **8 key concepts** from the AI Agents Intensive Cou
 
 ## 📖 Documentation
 
-| Document | Purpose |
-|----------|---------|
-| [docs/QUICKSTART.md](docs/QUICKSTART.md) | Get started in 3 steps |
-| [docs/SETUP.md](docs/SETUP.md) | Detailed setup instructions |
-| [docs/DAY4_OBSERVABILITY_EVALUATION_GUIDE.md](docs/DAY4_OBSERVABILITY_EVALUATION_GUIDE.md) | **🔎 Day 4: Observability & Evaluation** |
-| [docs/SESSION_MEMORY_GUIDE.md](docs/SESSION_MEMORY_GUIDE.md) | **🧠 Day 3: Sessions & Memory guide** |
-| [docs/ADVANCED_TOOLS.md](docs/ADVANCED_TOOLS.md) | **Day 2: Advanced tools & patterns** |
-| [docs/MULTI_AGENT_ARCHITECTURE.md](docs/MULTI_AGENT_ARCHITECTURE.md) | Day 1: Multi-agent system design |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical architecture |
-| [docs/PROJECT_SUMMARY.md](docs/PROJECT_SUMMARY.md) | Complete project overview |
-| [docs/PYTHON_VERSION_COMPATIBILITY.md](docs/PYTHON_VERSION_COMPATIBILITY.md) | Python version compatibility |
-| [examples/](examples/) | Multi-agent pattern examples |
+- [docs/QUICKSTART.md](docs/QUICKSTART.md)
+
+Older/legacy docs (including architecture deep-dives) live in `docs/old/`.
 
 ## 🚀 Example Usage
 
@@ -123,8 +117,8 @@ The system uses a **sequential multi-agent pipeline** where each agent has a spe
 ## 🛠️ Tech Stack
 
 - **Framework**: Google Agent Development Kit (ADK Python)
-- **AI Model**: Gemini 2.5 Flash (with retry logic)
-- **Language**: Python 3.10+ (Python 3.9 supported with limitations)
+- **AI Model**: Gemini 2.5 Flash (default) with fallback to Gemini 2.5 Flash Lite on transient overload/quota (503/429)
+- **Language**: Python 3.14+
 - **Database**: SQLite (session persistence)
 - **Tools**: Google Search, Custom FunctionTools, AgentTools, BuiltInCodeExecutor
 - **Testing**: pytest, ADK evaluation framework
@@ -180,8 +174,9 @@ The system uses a **sequential multi-agent pipeline** where each agent has a spe
 └──────────────────────────────────────┘
 ```
 
-**Learn More:**  
-📚 [Architecture Details](docs/ARCHITECTURE.md) | [Session & Memory Guide](docs/SESSION_MEMORY_GUIDE.md) | [Observability Guide](docs/DAY4_OBSERVABILITY_EVALUATION_GUIDE.md)
+**Learn More:**
+
+See `docs/old/` for legacy deep-dives.
 
 ## 📦 Installation
 
@@ -195,15 +190,15 @@ chmod +x install.sh
 ```bash
 pip3 install -r requirements.txt
 cp .env.example .env
-# Add your GOOGLE_API_KEY to .env
+# Configure authentication in .env (Vertex AI ADC or GOOGLE_API_KEY)
 python3 verify_setup.py
 ```
 
-## 🔐 API Key Setup
+## 🔐 Authentication Setup
 
-1. Get your free API key: [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. Copy `.env.example` to `.env`
-3. Add your key: `GOOGLE_API_KEY=your_key_here`
+1. Copy `.env.example` to `.env`
+2. Recommended (Vertex AI): authenticate via ADC (e.g. `gcloud auth application-default login`) and set `GOOGLE_CLOUD_PROJECT` + `GOOGLE_CLOUD_LOCATION`
+3. Alternative (AI Studio): set `GOOGLE_API_KEY` from [Google AI Studio](https://aistudio.google.com/app/apikey)
 
 ## 🧪 Testing & Evaluation
 
@@ -248,9 +243,10 @@ cat places_search.log
 
 ## 📋 Requirements
 
-- **Python 3.10+** (recommended) or Python 3.9 (limited features)
-  - See [docs/PYTHON_VERSION_COMPATIBILITY.md](docs/PYTHON_VERSION_COMPATIBILITY.md) for details
-- Google Gemini API key (free tier available at [AI Studio](https://aistudio.google.com/app/apikey))
+- **Python 3.14+**
+- Authentication for Gemini:
+  - Recommended: Vertex AI via ADC (e.g. `gcloud auth application-default login`)
+  - Optional: Google AI Studio API key (free tier available at [AI Studio](https://aistudio.google.com/app/apikey))
 - Internet connection for Google Search API
 - ~50MB disk space for dependencies
 
@@ -280,10 +276,8 @@ See [LICENSE](LICENSE) file for details.
 
 ## 🆘 Troubleshooting
 
-- **Setup Issues**: Check [docs/SETUP.md](docs/SETUP.md)
-- **Python Version**: See [docs/PYTHON_VERSION_COMPATIBILITY.md](docs/PYTHON_VERSION_COMPATIBILITY.md)
 - **Diagnostics**: Run `python3 verify_setup.py`
-- **Common Issues**: Review [docs/BUGFIX_SUMMARY.md](docs/BUGFIX_SUMMARY.md)
+- **Legacy docs**: See `docs/old/`
 
 ---
 
@@ -300,7 +294,16 @@ See [LICENSE](LICENSE) file for details.
 **Track**: Concierge Agents  
 **Submission Date**: November 2025  
 **Key Concepts**: 8/9 course concepts implemented  
-**Model**: Gemini 2.5 Flash  
+**Model**: Gemini 2.5 Flash (default)  
+
+### Optional model configuration
+
+You can override the default model selection via environment variables:
+
+```bash
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_FALLBACK_MODEL=gemini-2.5-flash-lite
+```
 
 ---
 

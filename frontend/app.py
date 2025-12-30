@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # Check for required environment variables
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 if not GOOGLE_API_KEY:
-    logger.warning("⚠️ GOOGLE_API_KEY not found. Set it in .env or environment variables.")
+    logger.warning("⚠️ GOOGLE_API_KEY not found. This is ok if you are using Vertex AI (recommended).")
 
 # Check for Vertex AI deployment configuration
 VERTEX_AGENT_RESOURCE_ID = os.environ.get("VERTEX_AGENT_RESOURCE_ID")
@@ -128,9 +128,9 @@ In production, this would call the Vertex AI Agent Engine to get real recommenda
 ---
 
 To enable full functionality:
-1. Set `GOOGLE_API_KEY` environment variable
+1. For production (recommended): set VERTEX_AGENT_RESOURCE_ID, VERTEX_PROJECT_ID, and VERTEX_LOCATION
 2. For local development: ensure the agent module is properly installed
-3. For production: ensure VERTEX_AGENT_RESOURCE_ID, VERTEX_PROJECT_ID, and VERTEX_LOCATION are set
+3. If you want to run locally against AI Studio: set `GOOGLE_API_KEY`
 """
 
 

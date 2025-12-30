@@ -10,7 +10,7 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from main import calculate_distance_score, get_place_category_boost
+from agent.utils.scoring_tools import calculate_distance_score, get_place_category_boost
 
 
 class TestDistanceScoreCalculation:

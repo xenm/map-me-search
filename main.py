@@ -13,6 +13,11 @@ import uuid
 from typing import Any, Dict, Optional
 from dotenv import load_dotenv
 
+try:
+    from google.genai import errors as genai_errors
+except ImportError:  # pragma: no cover
+    genai_errors = None
+
 def sanitize_for_log(s: Optional[str]) -> str:
     """Remove newlines and carriage returns from user input for safe logging."""
     if s is None:
@@ -29,7 +34,8 @@ from google.adk.code_executors import BuiltInCodeExecutor
 from google.adk.apps.app import App, EventsCompactionConfig
 from google.adk.plugins.logging_plugin import LoggingPlugin
 from google.genai import types
-from utils.scoring_tools import calculate_distance_score, get_place_category_boost
+from agent.utils.scoring_tools import calculate_distance_score, get_place_category_boost
+from agent.utils import places_agent_core
 
 # Day 4a: Custom observability plugin (optional)
 try:
@@ -74,30 +80,39 @@ def check_python_version():
     """Check Python version and warn if outdated."""
     python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     
-    if sys.version_info < (3, 10):
+    if sys.version_info < (3, 14):
         logging.warning(
-            f"⚠️ Python {python_version} detected. Python 3.10+ recommended for full compatibility."
+            f"⚠️ Python {python_version} detected. Python 3.14+ recommended for full compatibility."
         )
         logging.warning("⚠️ Some features (like DatabaseSessionService) may not work correctly.")
         print(f"⚠️ Warning: Python {python_version} detected")
-        print("⚠️ Python 3.10+ is recommended for full compatibility")
+        print("⚠️ Python 3.14+ is recommended for full compatibility")
         print("⚠️ The app will work with limited features (sessions won't persist)\n")
 
 
 def load_environment():
     """Load environment variables from .env file"""
     load_dotenv()
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+    location = os.environ.get("GOOGLE_CLOUD_LOCATION")
     api_key = os.environ.get("GOOGLE_API_KEY")
-    
-    if not api_key:
-        raise ValueError(
-            "❌ GOOGLE_API_KEY not found in environment variables.\n"
-            "Please create a .env file with your API key.\n"
-            "See .env.example for reference."
-        )
-    
-    print("✅ Environment variables loaded successfully.")
-    return api_key
+
+    if api_key:
+        os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "FALSE"
+        print("✅ Using Google AI Studio authentication (API key).")
+        return api_key
+
+    if project and location:
+        os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "TRUE"
+        print("✅ Using Vertex AI authentication (ADC).")
+        return None
+
+    raise ValueError(
+        "❌ No valid authentication configuration found.\n"
+        "Configure one of the following:\n"
+        "1) Vertex AI (recommended): GOOGLE_CLOUD_PROJECT + GOOGLE_CLOUD_LOCATION and authenticate via ADC (e.g. `gcloud auth application-default login`)\n"
+        "2) Google AI Studio: GOOGLE_API_KEY\n"
+    )
 
 
 # Custom Function Tools - Following ADK Best Practices
@@ -118,9 +133,11 @@ def save_user_preferences(tool_context: ToolContext, city: str, preferences: str
         Dictionary with status.
         Success: {"status": "success"}
     """
-    tool_context.state["user:last_city"] = city
-    tool_context.state["user:last_preferences"] = preferences
-    return {"status": "success", "message": f"Saved preferences for {city}"}
+    return places_agent_core.save_user_preferences(
+        tool_context=tool_context,
+        city=city,
+        preferences=preferences,
+    )
 
 
 def retrieve_user_preferences(tool_context: ToolContext) -> Dict[str, Any]:
@@ -133,14 +150,7 @@ def retrieve_user_preferences(tool_context: ToolContext) -> Dict[str, Any]:
         Dictionary with status and data.
         Success: {"status": "success", "city": "...", "preferences": "..."}
     """
-    city = tool_context.state.get("user:last_city", "Not set")
-    preferences = tool_context.state.get("user:last_preferences", "Not set")
-    
-    return {
-        "status": "success",
-        "city": city,
-        "preferences": preferences
-    }
+    return places_agent_core.retrieve_user_preferences(tool_context=tool_context)
 
 
 # Callback for automatic memory storage (Day 3 - Part 2)
@@ -155,185 +165,113 @@ async def auto_save_to_memory(callback_context):
         print(f"⚠️ Memory save failed: {e}")
 
 
-def initialize_multi_agent_system():
+def _is_transient_model_error(exc: BaseException) -> bool:
+    return places_agent_core._is_transient_model_error(exc)
+
+
+def _is_quota_exhausted_error(exc: BaseException) -> bool:
+    return places_agent_core._is_quota_exhausted_error(exc)
+
+
+def _get_model_candidates() -> list[str]:
+    return places_agent_core._get_model_candidates()
+
+
+async def _run_runner_collect_final_text(
+    runner: Runner,
+    user_id: str,
+    session_id: str,
+    query_content: types.Content,
+    max_attempts: int,
+    initial_delay_s: float,
+    backoff_factor: float,
+) -> str:
+    def _on_retry(attempt: int, max_attempts: int, delay: float) -> None:
+        print(
+            f"\n⚠️ Model temporarily unavailable (503). Retrying in {delay:.1f}s... ({attempt}/{max_attempts})"
+        )
+
+    return await places_agent_core._run_runner_collect_final_text(
+        runner=runner,
+        user_id=user_id,
+        session_id=session_id,
+        query_content=query_content,
+        max_attempts=max_attempts,
+        initial_delay_s=initial_delay_s,
+        backoff_factor=backoff_factor,
+        on_retry=_on_retry,
+    )
+
+
+def initialize_multi_agent_system(model_name: Optional[str] = None):
     """Initialize and configure the enhanced multi-agent system with Sessions and Memory"""
-    print("\n🔧 Initializing Enhanced Multi-Agent System with Sessions & Memory...")
-    
-    # Configure retry options for API calls
-    retry_config = types.HttpRetryOptions(
-        attempts=5,
-        exp_base=7,
-        initial_delay=1,
-        http_status_codes=[429, 500, 503, 504],
+    return places_agent_core.initialize_multi_agent_system(
+        model_name=model_name,
+        after_agent_callback=auto_save_to_memory,
+        announce=print,
     )
-    
-    # Agent 1: Research Agent - Searches for places using Google Search
-    research_agent = LlmAgent(
-        name="ResearchAgent",
-        model=Gemini(
-            model="gemini-2.5-flash",
-            retry_options=retry_config
-        ),
-        instruction="""
-You are a specialized research agent. Your only job is to use the google_search tool 
-to find relevant places, attractions, restaurants, and activities.
-
-Search for 5-7 specific places that match the user's interests. For each place, gather:
-- Name of the place
-- Type (restaurant, museum, park, etc.)
-- Brief description
-- Approximate distance from city center (if available)
-- Why it matches the preferences
-
-Present your findings as structured data with clear details for each place.""",
-        tools=[google_search],
-        output_key="research_findings",
-    )
-    print("✅ ResearchAgent created (with google_search tool)")
-    
-    # Agent 2: Calculation Agent - Uses code execution for precise scoring
-    calculation_agent = LlmAgent(
-        name="CalculationAgent",
-        model=Gemini(
-            model="gemini-2.5-flash",
-            retry_options=retry_config
-        ),
-        instruction="""You are a specialized calculator that ONLY responds with Python code.
-        
-Your task is to take scoring data and calculate final relevance scores.
-
-**RULES:**
-1. Your output MUST be ONLY a Python code block
-2. Do NOT write any text before or after the code
-3. The Python code MUST calculate the result
-4. The Python code MUST print the final result to stdout
-5. You are PROHIBITED from performing the calculation yourself
-
-Generate Python code that calculates weighted scores based on the provided data.""",
-        code_executor=BuiltInCodeExecutor(),
-        output_key="calculation_results",
-    )
-    print("✅ CalculationAgent created (with BuiltInCodeExecutor)")
-    
-    # Agent 3: Filter Agent - Uses custom tools and calculation agent
-    filter_agent = LlmAgent(
-        name="FilterAgent",
-        model=Gemini(
-            model="gemini-2.5-flash",
-            retry_options=retry_config
-        ),
-        instruction="""
-You are a filtering and ranking specialist. Review the research findings from the previous agent.
-
-Your task:
-1. For each place, use get_place_category_boost() to calculate category relevance
-2. If distance data is available, use calculate_distance_score() for location scoring
-3. Use the CalculationAgent to generate Python code that combines scores into a final rating (1-10)
-4. Check "status" field in each tool response for errors
-5. Select the top 5 highest-scoring places
-6. Organize by final score (highest first)
-
-Output a curated list with:
-- Place name
-- Final score (1-10)
-- Score breakdown (category boost, distance score, etc.)
-- Reasoning for selection""",
-        tools=[
-            FunctionTool(func=calculate_distance_score),
-            FunctionTool(func=get_place_category_boost),
-            FunctionTool(func=save_user_preferences),
-            FunctionTool(func=retrieve_user_preferences),
-            AgentTool(agent=calculation_agent),  # Using agent as a tool!
-            preload_memory,  # Memory retrieval tool
-        ],
-        output_key="filtered_results",
-        after_agent_callback=auto_save_to_memory,  # Auto-save to memory
-    )
-    print("✅ FilterAgent created (with custom FunctionTools + AgentTool + Memory)")
-    
-    # Agent 4: Formatter Agent - Creates beautiful final recommendations
-    formatter_agent = LlmAgent(
-        name="FormatterAgent",
-        model=Gemini(
-            model="gemini-2.5-flash",
-            retry_options=retry_config
-        ),
-        instruction="""
-You are a presentation specialist. Review the filtered and scored places from the previous agent.
-
-Create a beautifully formatted recommendation guide with:
-
-📍 For each place:
-   • Name and type (bold)
-   • Final relevance score (⭐ 1-10)
-   • Clear description (2-3 sentences)
-   • Why it's perfect for the user's preferences
-   • Score breakdown (if available)
-
-Make it engaging, easy to read, and helpful. Use emojis strategically. 
-End with a friendly summary of the recommendations.""",
-        output_key="final_recommendations",
-    )
-    print("✅ FormatterAgent created")
-    
-    # Create Sequential Agent - Enhanced pipeline with calculation agent
-    root_agent = SequentialAgent(
-        name="EnhancedPlacesSearchPipeline",
-        sub_agents=[research_agent, filter_agent, formatter_agent],
-    )
-    
-    print("\n✅ Enhanced Multi-Agent Pipeline created")
-    print("📋 Pipeline: ResearchAgent → FilterAgent (with tools) → FormatterAgent")
-    print("🔧 Custom Tools: calculate_distance_score, get_place_category_boost")
-    print("🤖 Agent Tools: CalculationAgent (code executor)")
-    print("💾 Session State: save_user_preferences, retrieve_user_preferences")
-    print("🧠 Memory: preload_memory for long-term recall")
-    return root_agent
 
 
 def initialize_services(topic: Optional[str] = None):
     """Initialize Session and Memory services based on topic.
     
     Args:
-        topic: If provided, use DatabaseSessionService for persistence.
+        topic: Optional topic for session persistence. If None/empty, uses transient session.
                If None/empty, use InMemorySessionService for transient session.
     
     Returns:
         Tuple of (session_service, memory_service)
     """
     print("\n🗄️ Initializing Services...")
-    
+
+    session_service, memory_service, using_database, db_error = places_agent_core.initialize_services(topic)
+
     if topic:
-        # PERSISTENT: Use database for topic-based sessions
         db_url = "sqlite:///places_search_sessions.db"
-        try:
-            session_service = DatabaseSessionService(db_url=db_url)
+        if using_database:
             print(f"✅ DatabaseSessionService initialized for topic '{topic}': {db_url}")
             logging.info(f"DatabaseSessionService initialized for topic '{sanitize_for_log(topic)}': {db_url}")
-        except Exception as e:
-            # Fallback to InMemorySessionService if database fails
+        else:
             python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-            logging.warning(
-                f"⚠️ DatabaseSessionService failed (Python {python_version}): {e}"
-            )
+            logging.warning(f"⚠️ DatabaseSessionService failed (Python {python_version}): {db_error}")
             logging.warning("⚠️ Falling back to InMemorySessionService (sessions won't persist)")
-            print(f"⚠️ DatabaseSessionService failed: {e}")
-            print(f"💡 Tip: Upgrade to Python 3.10+ (currently using Python {python_version})")
-            
-            session_service = InMemorySessionService()
+            print(f"⚠️ DatabaseSessionService failed: {db_error}")
+            print(f"💡 Tip: Upgrade to Python 3.14+ (currently using Python {python_version})")
             print("✅ InMemorySessionService initialized (fallback mode)")
             logging.info("InMemorySessionService initialized as fallback")
     else:
-        # TRANSIENT: Use in-memory for one-off searches (no topic)
-        session_service = InMemorySessionService()
         print("🚀 Transient Mode: Using InMemorySessionService (No DB write)")
         logging.info("InMemorySessionService initialized (transient mode - no topic)")
-    
-    # InMemoryMemoryService - Long-term knowledge storage
-    memory_service = InMemoryMemoryService()
+
     print("✅ InMemoryMemoryService initialized")
-    
     return session_service, memory_service
+
+
+def initialize_plugins(
+    enable_logging_plugin: bool = True,
+    enable_metrics_plugin: bool = True,
+):
+    """Initialize observability plugins (logging + metrics)."""
+    global _metrics_plugin_instance
+
+    plugins = []
+    if enable_logging_plugin:
+        plugins.append(LoggingPlugin())
+        print("✅ LoggingPlugin enabled")
+    else:
+        print("⚠️ LoggingPlugin disabled")
+
+    _metrics_plugin_instance = None
+    if enable_metrics_plugin and METRICS_PLUGIN_AVAILABLE:
+        _metrics_plugin_instance = MetricsTrackingPlugin()
+        plugins.append(_metrics_plugin_instance)
+        print("✅ MetricsTrackingPlugin enabled")
+    elif enable_metrics_plugin and not METRICS_PLUGIN_AVAILABLE:
+        print("⚠️ MetricsTrackingPlugin requested but not available")
+    else:
+        print("⚠️ MetricsTrackingPlugin disabled")
+
+    return plugins
 
 
 def create_app_with_compaction(root_agent, plugins=None):
@@ -344,16 +282,12 @@ def create_app_with_compaction(root_agent, plugins=None):
         plugins: List of plugins to add to the app (Day 4a)
     """
     print("\n📦 Creating App with Context Compaction...")
-    
-    app = App(
-        name="PlacesSearchApp",
+
+    app = places_agent_core.create_app(
         root_agent=root_agent,
-        # Context Compaction: Automatically summarize conversation history
-        events_compaction_config=EventsCompactionConfig(
-            compaction_interval=4,  # Compact every 4 turns
-            overlap_size=1,  # Keep 1 turn for context
-        ),
-        plugins=plugins or [],  # Day 4a: Add plugins to App, not Runner
+        plugins=plugins,
+        compaction_interval=4,
+        overlap_size=1,
     )
     
     print("✅ App created with EventsCompactionConfig")
@@ -365,51 +299,20 @@ def create_app_with_compaction(root_agent, plugins=None):
     return app
 
 
-def initialize_plugins(enable_logging_plugin: bool, enable_metrics_plugin: bool):
-    """Initialize observability plugins based on configuration."""
-    plugins = []
-    
-    if enable_logging_plugin:
-        plugins.append(LoggingPlugin())
-        logging.info("🔌 LoggingPlugin enabled for comprehensive observability")
-    
-    if enable_metrics_plugin and METRICS_PLUGIN_AVAILABLE:
-        global _metrics_plugin_instance
-        _metrics_plugin_instance = MetricsTrackingPlugin()
-        plugins.append(_metrics_plugin_instance)
-        logging.info("🔌 MetricsTrackingPlugin enabled for performance metrics")
-    
-    return plugins
-
-
 def generate_session_id(user_id: str, topic: Optional[str]) -> str:
     """Generate session ID based on topic for persistence or transient use."""
-    if topic:
-        return f"{user_id}::{topic}"
-    else:
-        return f"{user_id}::temp::{uuid.uuid4()}"
+    return places_agent_core.generate_session_id(user_id=user_id, topic=topic)
 
 
 async def create_or_retrieve_session(session_service, app_name: str, user_id: str, session_id: str):
     """Create new session or retrieve existing one."""
-    try:
-        session = await session_service.create_session(
-            app_name=app_name,
-            user_id=user_id,
-            session_id=session_id
-        )
-        print("✅ New session created")
-    except (ValueError, RuntimeError, ConnectionError) as e:
-        # Session likely exists, try to retrieve it
-        try:
-            session = await session_service.get_session(
-                app_name=app_name,
-                user_id=user_id,
-                session_id=session_id
-            )
-            print("✅ Existing session retrieved")
-        except (ValueError, RuntimeError, ConnectionError) as retrieve_error:
-            raise RuntimeError(f"Failed to create or retrieve session: {retrieve_error}")
+    session, created_new = await places_agent_core.create_or_retrieve_session(
+        session_service=session_service,
+        app_name=app_name,
+        user_id=user_id,
+        session_id=session_id,
+    )
+    print("✅ New session created" if created_new else "✅ Existing session retrieved")
     return session
 
 
@@ -443,24 +346,11 @@ async def search_places(
     print(f"🏷️  Topic: {topic or 'None (transient session)'}")
     print("=" * 60)
     
-    # Initialize multi-agent system
-    agent = initialize_multi_agent_system()
-    
     # Initialize Session and Memory services based on topic
     session_service, memory_service = initialize_services(topic)
     
     # Create plugins list for observability (Day 4a)
     plugins = initialize_plugins(enable_logging_plugin, enable_metrics_plugin)
-    
-    # Create App with context compaction and plugins (Day 4a: plugins go in App, not Runner)
-    app = create_app_with_compaction(agent, plugins=plugins)
-    
-    # Create Runner with all services (plugins are in the App)
-    runner = Runner(
-        app=app,
-        session_service=session_service,
-        memory_service=memory_service
-    )
     
     # Generate session ID based on topic
     session_id = generate_session_id(user_id, topic)
@@ -468,7 +358,7 @@ async def search_places(
     print(f"\n📱 Session ID: {session_id}")
     
     # Create or retrieve session
-    session = await create_or_retrieve_session(session_service, app.name, user_id, session_id)
+    session = await create_or_retrieve_session(session_service, "PlacesSearchApp", user_id, session_id)
     
     # Create a search prompt
     prompt = (
@@ -481,18 +371,53 @@ async def search_places(
     
     # Convert to ADK Content format
     query_content = types.Content(role="user", parts=[types.Part(text=prompt)])
-    
-    # Run the agent asynchronously and collect response
+
+    model_candidates = _get_model_candidates()
     final_text = ""
-    async for event in runner.run_async(
-        user_id=user_id,
-        session_id=session.id,
-        new_message=query_content
-    ):
-        if event.is_final_response() and event.content and event.content.parts:
-            text = event.content.parts[0].text
-            if text and text != "None":
-                final_text = text
+    last_error: Optional[BaseException] = None
+    for idx, model_name in enumerate(model_candidates, start=1):
+        try:
+            if idx > 1:
+                print(f"\n🔁 Switching model to '{model_name}' and retrying...")
+
+            agent = initialize_multi_agent_system(model_name=model_name)
+            app = create_app_with_compaction(agent, plugins=plugins)
+            runner = Runner(
+                app=app,
+                session_service=session_service,
+                memory_service=memory_service,
+            )
+
+            final_text = await _run_runner_collect_final_text(
+                runner=runner,
+                user_id=user_id,
+                session_id=session.id,
+                query_content=query_content,
+                max_attempts=3,
+                initial_delay_s=2.0,
+                backoff_factor=2.0,
+            )
+            last_error = None
+            break
+        except Exception as e:
+            last_error = e
+            if not _is_transient_model_error(e):
+                raise
+            continue
+
+    if last_error is not None:
+        logging.exception("❌ LLM request failed after retries/model fallback")
+        if _is_quota_exhausted_error(last_error):
+            return (
+                "Gemini API quota is exceeded (HTTP 429 RESOURCE_EXHAUSTED). "
+                "This usually means your API key has no free-tier quota for that model or billing is required. "
+                "Try setting GEMINI_MODEL/GEMINI_FALLBACK_MODEL to a model with available quota, "
+                "or switch to Vertex AI authentication (ADC + GOOGLE_CLOUD_PROJECT/GOOGLE_CLOUD_LOCATION)."
+            )
+        return (
+            "The AI model is temporarily unavailable (HTTP 503). "
+            "Please try again in a minute, or set GEMINI_FALLBACK_MODEL in .env to a different model."
+        )
     
     # Save session to memory for long-term recall (only if topic is provided)
     if topic:

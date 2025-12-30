@@ -66,7 +66,9 @@ try:
     print("=" * 60)
     print("\n🎉 Your environment is ready to run the AI Places Search!")
     print("\nNext steps:")
-    print("1. Set up your .env file with GOOGLE_API_KEY")
+    print("1. Configure authentication (see .env.example):")
+    print("   - Vertex AI (recommended): gcloud auth application-default login + set GOOGLE_CLOUD_PROJECT/GOOGLE_CLOUD_LOCATION")
+    print("   - AI Studio: set GOOGLE_API_KEY")
     print("2. Run: python verify_setup.py")
     print("3. Run: python main.py")
     

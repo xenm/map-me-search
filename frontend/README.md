@@ -31,9 +31,10 @@ A mini frontend for the AI Places Search agent, built with Gradio.
 
 Set these in the Space settings or `.env` file:
 
-- `GOOGLE_API_KEY`: Your Google AI API key
-- `VERTEX_PROJECT_ID`: (Optional) Google Cloud project ID for Vertex AI
-- `VERTEX_LOCATION`: (Optional) Vertex AI region
+- `VERTEX_AGENT_RESOURCE_ID`: Vertex AI Agent Engine resource ID
+- `VERTEX_PROJECT_ID`: Google Cloud project ID for Vertex AI
+- `VERTEX_LOCATION`: Vertex AI region
+- `GOOGLE_API_KEY`: (Optional) Google AI Studio API key (only needed if using a local agent against AI Studio)
 
 ## Usage
 

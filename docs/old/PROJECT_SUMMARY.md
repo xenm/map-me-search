@@ -2,7 +2,7 @@
 
 ## AI-Powered Nearby Places Search
 
-**Status**: ✅ **READY TO USE** (After installing dependencies and setting API key)
+**Status**: ✅ **READY TO USE** (After installing dependencies and configuring authentication)
 
 ---
 
@@ -24,7 +24,7 @@ Using Google's Agent Development Kit (ADK) with a single AI agent.
 |------|---------|--------|
 | `main.py` | Main application with AI agent | ✅ Complete |
 | `requirements.txt` | Python dependencies | ✅ Complete |
-| `.env.example` | API key template | ✅ Complete |
+| `.env.example` | Authentication template | ✅ Complete |
 
 ### Testing & Verification
 
@@ -80,8 +80,8 @@ map-me-search/
 │   └── requirements.txt          # Dependencies
 │
 ├── 🔧 Configuration
-│   ├── .env.example              # API key template
-│   ├── .env                      # Your API key (create this)
+│   ├── .env.example              # Auth template
+│   ├── .env                      # Your local config (create this)
 │   └── .gitignore                # Git ignore rules
 │
 ├── 🧪 Testing
@@ -106,10 +106,12 @@ map-me-search/
 pip3 install google-adk python-dotenv
 ```
 
-### 2. Add API Key
+### 2. Configure Authentication
 ```bash
 cp .env.example .env
-# Edit .env and add your GOOGLE_API_KEY
+# Edit .env and choose one:
+# - Vertex AI (recommended): GOOGLE_GENAI_USE_VERTEXAI=TRUE + GOOGLE_CLOUD_PROJECT/GOOGLE_CLOUD_LOCATION (uses ADC)
+# - AI Studio: GOOGLE_GENAI_USE_VERTEXAI=FALSE + GOOGLE_API_KEY
 ```
 
 ### 3. Run Application
@@ -189,7 +191,7 @@ response = await runner.run_debug(prompt)
 
 - [x] All required files created
 - [x] Dependencies documented
-- [x] API key management configured
+- [x] Authentication configured
 - [x] Import tests implemented
 - [x] Setup verification implemented
 - [x] Error handling implemented
@@ -200,11 +202,11 @@ response = await runner.run_debug(prompt)
 
 ## 🔐 Security Features
 
-✅ **API Key Protection**
-- Stored in `.env` file
+✅ **Credential Protection**
+- Stored in `.env` file when used
 - Excluded from git via `.gitignore`
 - Loaded securely via python-dotenv
-- Validated before use
+- No hardcoded credentials
 
 ✅ **Error Handling**
 - Environment validation
@@ -281,8 +283,8 @@ response = await runner.run_debug(prompt)
 
 ### 🔄 Next Steps (For You)
 1. Install dependencies: `pip3 install -r requirements.txt`
-2. Get API key: https://aistudio.google.com/app/apikey
-3. Create `.env` file with your key
+2. Configure authentication (see `.env.example`)
+3. Create `.env` file
 4. Run verification: `python3 verify_setup.py`
 5. Launch app: `python3 main.py`
 6. Start searching!
@@ -304,7 +306,7 @@ response = await runner.run_debug(prompt)
 | Command not found | Check `COMMANDS.md` |
 | Import errors | Run `python3 test_imports.py` |
 | Setup issues | Run `python3 verify_setup.py` |
-| API key errors | Check `.env` file format |
+| Auth errors | Check `.env` file format |
 
 ---
 
@@ -312,7 +314,7 @@ response = await runner.run_debug(prompt)
 
 1. **Run the app**: `python3 main.py`
 2. **Test setup**: `python3 verify_setup.py`
-3. **API key**: Edit `.env` file
+3. **Auth**: Edit `.env` file
 4. **Install deps**: `pip3 install -r requirements.txt`
 
 ---
@@ -323,7 +325,7 @@ response = await runner.run_debug(prompt)
 - [x] Uses Google Agent Development Kit
 - [x] Implements single agent pattern
 - [x] Integrates Google Search tool
-- [x] Loads API key from .env file
+- [x] Loads auth configuration
 - [x] Configures retry options properly
 - [x] Takes City Name as input
 - [x] Takes User Preferences as input
@@ -337,13 +339,13 @@ response = await runner.run_debug(prompt)
 
 Your AI-powered places search is **ready to go**! 
 
-Just install dependencies, add your API key, and start exploring! 🚀
+Just install dependencies, configure authentication, and start exploring! 🚀
 
 ---
 
 **Last Updated**: Project created and fully documented
 **Status**: Production-ready (after setup)
 **Version**: 1.0
-**Language**: Python 3.8+
+**Language**: Python 3.14+
 **Framework**: Google ADK
 **Model**: Gemini 2.0 Flash Exp
