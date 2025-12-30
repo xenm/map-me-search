@@ -112,8 +112,12 @@ class MetricsTrackingPlugin(BasePlugin):
         if llm_response and hasattr(llm_response, 'usage_metadata'):
             usage_metadata = getattr(llm_response, 'usage_metadata', None)
             if usage_metadata:
-                input_tokens = getattr(usage_metadata, 'prompt_token_count', 0)
-                output_tokens = getattr(usage_metadata, 'candidates_token_count', 0)
+                input_tokens_raw = getattr(usage_metadata, 'prompt_token_count', 0)
+                output_tokens_raw = getattr(usage_metadata, 'candidates_token_count', 0)
+
+                # Handle None or non-int values defensively
+                input_tokens = int(input_tokens_raw or 0)
+                output_tokens = int(output_tokens_raw or 0)
                 
                 self.total_input_tokens += input_tokens
                 self.total_output_tokens += output_tokens

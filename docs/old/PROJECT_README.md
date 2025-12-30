@@ -14,8 +14,10 @@ An intelligent application that searches for nearby places based on city name an
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- Google Gemini API key ([Get one here](https://aistudio.google.com/app/apikey))
+- Python 3.14 or higher
+- Authentication (choose one):
+  - Vertex AI (recommended): ADC (e.g. `gcloud auth application-default login`)
+  - Google AI Studio: API key ([Get one here](https://aistudio.google.com/app/apikey))
 
 ### Installation
 
@@ -36,10 +38,7 @@ An intelligent application that searches for nearby places based on city name an
    cp .env.example .env
    ```
    
-   Edit `.env` and add your Google API key:
-   ```
-   GOOGLE_API_KEY=your_actual_api_key_here
-   ```
+   Edit `.env` and configure authentication (Vertex AI ADC or AI Studio API key).
 
 ### Usage
 
@@ -77,7 +76,7 @@ map-me-search/
 ├── main.py              # Main application script
 ├── requirements.txt     # Python dependencies
 ├── .env.example         # Environment variables template
-├── .env                 # Your actual API keys (git-ignored)
+├── .env                 # Your local config (git-ignored)
 ├── .gitignore          # Git ignore rules
 └── PROJECT_README.md   # This file
 ```
@@ -95,7 +94,7 @@ The application uses a single AI agent with the following configuration:
 
 ### Key Components
 
-1. **Environment Loading**: Securely loads API keys from `.env` file
+1. **Environment Loading**: Loads authentication configuration from `.env` (optional)
 2. **Agent Initialization**: Configures the AI agent with retry options
 3. **Search Function**: Executes the search based on user input
 4. **Response Formatting**: Displays results in a user-friendly format
@@ -114,7 +113,7 @@ retry_config = types.HttpRetryOptions(
 ## 🔐 Security Notes
 
 - **Never commit your `.env` file** - It's already in `.gitignore`
-- API keys are loaded from environment variables, not hardcoded
+- Credentials are loaded from environment variables/ADC, not hardcoded
 - The `.env.example` file shows the required format without exposing secrets
 
 ## 📦 Dependencies
@@ -136,8 +135,8 @@ To extend this project, you can:
 
 ### Troubleshooting
 
-**Issue**: `GOOGLE_API_KEY not found`
-- **Solution**: Make sure you've created a `.env` file with your API key
+**Issue**: Authentication not configured
+- **Solution**: Configure either Vertex AI (ADC + `GOOGLE_CLOUD_PROJECT`/`GOOGLE_CLOUD_LOCATION`) or AI Studio (`GOOGLE_API_KEY`).
 
 **Issue**: Import errors
 - **Solution**: Run `pip install -r requirements.txt` to install all dependencies

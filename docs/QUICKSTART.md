@@ -1,63 +1,64 @@
-# ⚡ Quick Start - AI Places Search
+# QUICKSTART (Local)
 
-## 🎯 What This Does
-Searches for nearby places based on your city and preferences using Google's Gemini AI.
+This guide gets you running locally from scratch with the fewest possible steps.
 
-## 🏃 3 Steps to Run
+## Requirements
 
-### 1️⃣ Install Dependencies
+- Python 3.14+
+
+## 1) Install (creates `venv/`, installs deps, creates `.env`)
+
 ```bash
-pip install google-adk python-dotenv
+chmod +x install.sh
+./install.sh
 ```
 
-### 2️⃣ Add Your API Key
-1. Get API key: https://aistudio.google.com/app/apikey
-2. Create `.env` file:
-   ```bash
-   cp .env.example .env
-   ```
-3. Edit `.env` and add your key:
-   ```
-   GOOGLE_API_KEY=your_actual_key_here
-   ```
+## 2) Configure authentication
 
-### 3️⃣ Run It!
+The installer creates `.env` from `.env.example` (if missing). Edit `.env` and choose one:
+
+### Option A (recommended): Vertex AI via ADC
+
 ```bash
+gcloud auth application-default login
+```
+
+Set in `.env` (or export in your shell):
+
+```bash
+GOOGLE_CLOUD_PROJECT=your-project-id
+GOOGLE_CLOUD_LOCATION=us-central1
+```
+
+### Option B (optional): Google AI Studio API key
+
+Set in `.env`:
+
+```bash
+GOOGLE_API_KEY=your_api_key
+```
+
+## 3) Run
+
+```bash
+source venv/bin/activate
 python main.py
 ```
 
-## 💡 Example Usage
+## Optional: model selection / fallback
 
-```
-📍 Enter city name: Tokyo
-❤️  What do you like?: ramen and temples
+By default the app uses `gemini-2.5-flash` and will fall back to `gemini-2.5-flash-lite` if the primary model is temporarily overloaded (HTTP 503) or quota-limited (HTTP 429).
 
-🔍 Searching...
+You can override this in `.env`:
 
-📍 SEARCH RESULTS
-============================================================
-Here are some great places in Tokyo for ramen and temples:
-
-1. **Ichiran Ramen (Shibuya)** - Famous tonkotsu ramen chain...
-2. **Senso-ji Temple** - Tokyo's oldest Buddhist temple...
-3. **Afuri Ramen** - Known for yuzu-infused ramen...
-...
-============================================================
+```bash
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_FALLBACK_MODEL=gemini-2.5-flash-lite
 ```
 
-## 📚 More Information
-- **Full Documentation**: See `PROJECT_README.md`
-- **Setup Troubleshooting**: See `SETUP.md`
-- **Verify Installation**: Run `python verify_setup.py`
+## Sanity checks
 
-## 🎨 Project Structure
+```bash
+source venv/bin/activate
+python verify_setup.py
 ```
-map-me-search/
-├── main.py              # 👈 Run this file
-├── requirements.txt     # Dependencies
-├── .env.example         # Template for API key
-└── .env                 # Your actual API key (create this)
-```
-
----
-🚀 **Ready?** Run `python main.py` and start exploring!

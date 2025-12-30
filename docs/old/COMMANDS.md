@@ -93,6 +93,8 @@ python main.py            # Then run
 python3 --version
 ```
 
+This project requires Python 3.14+.
+
 ### List Installed Packages
 ```bash
 pip list

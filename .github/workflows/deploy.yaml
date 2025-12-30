@@ -1,0 +1,247 @@
+name: Deploy Agent to Vertex AI & Frontend to Hugging Face
+
+on:
+  push:
+    branches: [main]
+    paths: ['agent/**', 'frontend/**', '.github/workflows/deploy.yaml']
+  workflow_dispatch:
+    inputs:
+      deploy_vertex:
+        description: 'Deploy to Vertex AI'
+        type: boolean
+        default: true
+      deploy_huggingface:
+        description: 'Deploy to Hugging Face'
+        type: boolean
+        default: true
+
+env:
+  PYTHON_VERSION: '3.14'
+  GCP_REGION: 'europe-west4'
+
+jobs:
+  # ============================================================================
+  # JOB 1: Deploy the Agent "Brain" to Vertex AI
+  # ============================================================================
+  deploy-vertex-ai:
+    name: Deploy Agent to Vertex AI
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event.inputs.deploy_vertex == 'true' }}
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    outputs:
+      agent_resource_id: ${{ steps.vertex_deploy.outputs.agent_resource_id }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
+        with:
+          # Option 1: Workload Identity Federation (recommended - keyless)
+          workload_identity_provider: '${{ secrets.WIF_PROVIDER }}'
+          service_account: '${{ secrets.WIF_SERVICE_ACCOUNT }}'
+          # Option 2: Service Account Key (fallback)
+          # credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install ADK and Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-adk google-genai google-cloud-aiplatform
+          if [ -f agent/requirements.txt ]; then pip install -r agent/requirements.txt; fi
+
+      - name: Deploy to Vertex AI Agent Engine
+        id: vertex_deploy
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          REGION: ${{ env.GCP_REGION }}
+        run: |
+          echo "🚀 Deploying agent to Vertex AI Agent Engine..."
+          
+          # Capture deployment output
+          DEPLOY_OUTPUT=$(adk deploy agent_engine \
+            --project $PROJECT_ID \
+            --region $REGION \
+            agent \
+            --requirements_file agent/requirements.txt \
+            --agent_engine_config_file agent/.agent_engine_config.json 2>&1)
+          
+          echo "$DEPLOY_OUTPUT"
+          
+          # Extract Resource ID (format: projects/.../locations/.../reasoningEngines/...)
+          RESOURCE_ID=$(echo "$DEPLOY_OUTPUT" | grep -oE 'projects/[0-9]+/locations/[a-z0-9-]+/reasoningEngines/[0-9]+' | head -1)
+          
+          if [ -z "$RESOURCE_ID" ]; then
+            echo "❌ Failed to obtain Agent Resource ID!"
+            exit 1
+          fi
+          
+          echo "✅ Agent Resource ID: $RESOURCE_ID"
+          echo "agent_resource_id=$RESOURCE_ID" >> $GITHUB_OUTPUT
+
+      - name: Health Check - Verify Agent
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          REGION: ${{ env.GCP_REGION }}
+          AGENT_ID: ${{ steps.vertex_deploy.outputs.agent_resource_id }}
+        run: |
+          echo "🔍 Testing deployed agent..."
+          
+          python << 'EOF'
+          import os
+          import sys
+          
+          try:
+              import vertexai
+              from vertexai.preview import reasoning_engines
+              
+              project_id = os.environ['PROJECT_ID']
+              region = os.environ['REGION']
+              agent_id = os.environ['AGENT_ID']
+              
+              vertexai.init(project=project_id, location=region)
+              agent = reasoning_engines.ReasoningEngine(agent_id)
+              response = agent.query(input="Health check - are you operational?")
+              print(f"✅ Agent responded successfully!")
+              print(f"Response: {response}")
+              sys.exit(0)
+          except Exception as e:
+              print(f"⚠️ Health check warning: {e}")
+              print("Agent check failed.")
+              sys.exit(1)
+          EOF
+
+  # ============================================================================
+  # JOB 2: Deploy the Mini-Frontend to Hugging Face Spaces
+  # ============================================================================
+  deploy-huggingface:
+    name: Deploy Frontend to Hugging Face
+    runs-on: ubuntu-latest
+    needs: deploy-vertex-ai  # Wait for Vertex AI deployment
+    if: ${{ (github.event_name == 'push' || github.event.inputs.deploy_huggingface == 'true') && !failure() }}
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Git LFS
+        run: git lfs install
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+      - name: Update Hugging Face Configuration
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          # Get the ID from the previous job
+          AGENT_ID: ${{ needs.deploy-vertex-ai.outputs.agent_resource_id }}
+        run: |
+          pip install huggingface_hub
+          python -c "
+          from huggingface_hub import HfApi
+          api = HfApi(token='${HF_TOKEN}')
+          # Update the variable dynamically
+          api.add_space_variable(
+              repo_id=f'{HF_USERNAME}/{SPACE_NAME}',
+              key='VERTEX_AGENT_RESOURCE_ID',
+              value='${AGENT_ID}'
+          )
+          print('✅ Updated VERTEX_AGENT_RESOURCE_ID in Hugging Face Space settings')
+          "
+
+      - name: Push to Hugging Face Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
+        run: |
+          echo "🚀 Deploying frontend to Hugging Face Spaces..."
+          cd frontend
+          
+          rm -rf .git
+          git init
+          git add .
+          git commit -m "Deploy from GitHub Actions - $(date '+%Y-%m-%d %H:%M:%S')"
+          git push --force https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME main
+          
+          echo "✅ Deployment to Hugging Face completed!"
+          echo "🌐 Visit: https://huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME"
+
+  # ============================================================================
+  # JOB 3: Rollback on Failure
+  # ============================================================================
+  rollback-on-failure:
+    name: Rollback Info on Failure
+    runs-on: ubuntu-latest
+    needs: [deploy-vertex-ai]
+    if: failure()
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
+        with:
+          workload_identity_provider: '${{ secrets.WIF_PROVIDER }}'
+          service_account: '${{ secrets.WIF_SERVICE_ACCOUNT }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
+
+      - name: List Available Deployments for Rollback
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          echo "⚠️ Deployment failed! Available reasoning engines for rollback:"
+          gcloud ai reasoning-engines list \
+            --project=$GCP_PROJECT_ID \
+            --region=${{ env.GCP_REGION }} \
+            --format="table(name,displayName,createTime)" || echo "Could not list engines"
+          
+          echo ""
+          echo "To rollback manually, redeploy a previous commit or use:"
+          echo "  gcloud ai reasoning-engines delete <RESOURCE_ID>"
+
+  # ============================================================================
+  # JOB 4: Summary
+  # ============================================================================
+  deployment-summary:
+    name: Deployment Summary
+    permissions: {}
+    runs-on: ubuntu-latest
+    needs: [deploy-vertex-ai, deploy-huggingface]
+    if: always()
+
+    steps:
+      - name: Summary
+        run: |
+          echo "==================== DEPLOYMENT SUMMARY ===================="
+          echo ""
+          echo "🧠 Vertex AI Agent: ${{ needs.deploy-vertex-ai.result }}"
+          echo "   Resource ID: ${{ needs.deploy-vertex-ai.outputs.agent_resource_id }}"
+          echo ""
+          echo "🎨 Hugging Face Frontend: ${{ needs.deploy-huggingface.result }}"
+          echo ""
+          echo "============================================================"

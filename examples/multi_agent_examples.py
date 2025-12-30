@@ -300,8 +300,21 @@ async def demo_sequential():
     """Demo the sequential pattern (currently implemented)"""
     load_dotenv()
     
-    if not os.environ.get("GOOGLE_API_KEY"):
-        print("❌ GOOGLE_API_KEY not found. Set it in .env file.")
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+    location = os.environ.get("GOOGLE_CLOUD_LOCATION")
+    api_key = os.environ.get("GOOGLE_API_KEY")
+
+    if project and location:
+        os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "TRUE")
+        print("✅ Using Vertex AI authentication (ADC)")
+    elif api_key:
+        os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
+        print("✅ Using Google AI Studio authentication (API key)")
+    else:
+        print("❌ No valid authentication configured.")
+        print("   Configure one of the following:")
+        print("   1) Vertex AI (recommended): GOOGLE_CLOUD_PROJECT + GOOGLE_CLOUD_LOCATION and ADC (gcloud auth application-default login)")
+        print("   2) Google AI Studio: GOOGLE_API_KEY")
         return
     
     print("\n" + "="*60)

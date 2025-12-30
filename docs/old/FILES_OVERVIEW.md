@@ -15,7 +15,7 @@ Complete guide to all files in this project and their purposes.
 - Formats and displays results
 
 **Key functions**:
-- `load_environment()` - Loads API key from .env
+- `load_environment()` - Loads authentication configuration
 - `initialize_agent()` - Sets up the AI agent
 - `search_places()` - Performs the search
 - `get_user_input()` - Gets user input
@@ -42,16 +42,19 @@ python-dotenv
 ### `.env.example`
 **Purpose**: Template for environment variables  
 **What it contains**:
-- `GOOGLE_API_KEY` placeholder
-- Instructions on where to get API key
+- Authentication templates for:
+  - Vertex AI (recommended): `GOOGLE_GENAI_USE_VERTEXAI=TRUE` + `GOOGLE_CLOUD_PROJECT` + `GOOGLE_CLOUD_LOCATION`
+  - Google AI Studio (optional): `GOOGLE_GENAI_USE_VERTEXAI=FALSE` + `GOOGLE_API_KEY`
 
-**Usage**: Copy to `.env` and add your actual API key
+**Usage**: Copy to `.env` and configure authentication
 ```bash
 cp .env.example .env
 ```
 
+Then configure authentication in `.env` (Vertex AI ADC recommended, or AI Studio API key).
+
 ### `.env` (Not in repo)
-**Purpose**: Stores your actual API key  
+**Purpose**: Stores your local authentication configuration  
 **Security**: 
 - ✅ Listed in `.gitignore`
 - ✅ Never committed to git
@@ -82,10 +85,10 @@ cp .env.example .env
 ### `verify_setup.py`
 **Purpose**: Comprehensive setup verification  
 **What it checks**:
-- Python version (needs 3.8+)
+- Python version (needs 3.14+)
 - Required packages installed
 - `.env` file exists
-- `GOOGLE_API_KEY` is configured
+- Authentication is configured (Vertex AI ADC or AI Studio API key)
 
 **Run with**: `python3 verify_setup.py`
 
@@ -124,7 +127,7 @@ cp .env.example .env
 **Audience**: Users setting up for first time  
 **Contents**:
 - Step-by-step installation
-- API key setup instructions
+- Authentication setup instructions
 - Troubleshooting common issues
 - Virtual environment setup
 - Advanced configuration
@@ -247,7 +250,7 @@ cp .env.example .env
 ### `.gitignore`
 **Purpose**: Specifies files Git should ignore  
 **Key entries**:
-- `.env` (protects API keys)
+- `.env` (protects credentials)
 - `__pycache__/` (Python cache)
 - `venv/` (virtual environments)
 - IDE files
@@ -264,7 +267,7 @@ cp .env.example .env
 
 ### 🔧 For Setup
 1. `SETUP.md` - Detailed setup
-2. `.env.example` - API key template
+2. `.env.example` - Auth template
 3. `install.sh` - Automated installer
 
 ### 💻 For Running
@@ -312,7 +315,7 @@ map-me-search/
 │
 └── 🔒 Configuration
     ├── .env.example            (Template)
-    ├── .env                    (Your keys - create this)
+    ├── .env                    (Your local config - create this)
     └── .gitignore              (Git exclusions)
 ```
 
@@ -324,7 +327,7 @@ map-me-search/
 |------------|---------------|
 | Run the app | `main.py` |
 | Install dependencies | `requirements.txt` or `install.sh` |
-| Set up API key | `.env.example` → `.env` |
+| Set up auth | `.env.example` → `.env` |
 | Test setup | `verify_setup.py` |
 | Check imports | `test_imports.py` |
 | Quick start | `QUICKSTART.md` |

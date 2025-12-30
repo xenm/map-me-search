@@ -3,7 +3,7 @@
 ## Step-by-Step Installation
 
 ### 1. Prerequisites Check
-Ensure you have Python 3.8 or higher installed:
+Ensure you have Python 3.14 or higher installed:
 ```bash
 python --version
 ```
@@ -19,12 +19,32 @@ Or install individually:
 pip install google-adk python-dotenv
 ```
 
-### 3. Get Google Gemini API Key
+### 3. Configure Authentication
 
-1. Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. Sign in with your Google account
-3. Click "Create API Key"
-4. Copy the generated API key
+You can run the project in one of two modes:
+
+#### Option A (recommended): Vertex AI (ADC)
+
+1. Authenticate locally via ADC:
+```bash
+gcloud auth application-default login
+```
+
+2. Set these environment variables (e.g. in `.env`):
+```
+GOOGLE_GENAI_USE_VERTEXAI=TRUE
+GOOGLE_CLOUD_PROJECT=your_gcp_project_id
+GOOGLE_CLOUD_LOCATION=us-central1
+```
+
+#### Option B: Google AI Studio (API key)
+
+1. Get an API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Set these environment variables (e.g. in `.env`):
+```
+GOOGLE_GENAI_USE_VERTEXAI=FALSE
+GOOGLE_API_KEY=your_actual_api_key_here
+```
 
 ### 4. Configure Environment Variables
 
@@ -33,10 +53,7 @@ Create your `.env` file:
 cp .env.example .env
 ```
 
-Edit the `.env` file and replace the placeholder with your actual API key:
-```
-GOOGLE_API_KEY=your_actual_api_key_here
-```
+Edit the `.env` file and configure authentication (Vertex AI ADC or AI Studio API key).
 
 **Important**: Never commit the `.env` file to version control!
 
@@ -53,7 +70,7 @@ You should see:
 ✅ python-dotenv installed
 ✅ google-adk installed
 ✅ .env file exists
-✅ GOOGLE_API_KEY is configured
+✅ Authentication is configured
 ✅ ALL CHECKS PASSED! You're ready to run main.py
 ```
 
@@ -78,14 +95,13 @@ ModuleNotFoundError: No module named 'google.adk'
 ```
 **Solution**: Install dependencies with `pip install -r requirements.txt`
 
-### Issue: API Key Error
+### Issue: Authentication Error
 ```
-❌ GOOGLE_API_KEY not found in environment variables.
+❌ No valid authentication configuration found.
 ```
-**Solution**: 
-1. Make sure `.env` file exists in the project root
-2. Verify the API key is correctly set in `.env`
-3. Don't use quotes around the API key in `.env`
+**Solution**:
+1. Vertex AI (recommended): run `gcloud auth application-default login` and set `GOOGLE_CLOUD_PROJECT` + `GOOGLE_CLOUD_LOCATION`
+2. AI Studio: set `GOOGLE_API_KEY`
 
 ### Issue: Rate Limit Errors
 ```

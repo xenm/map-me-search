@@ -17,7 +17,7 @@ This application uses Google's Agent Development Kit (ADK) to create an AI-power
 │                  main.py                                 │
 │  ┌─────────────────────────────────────────────────┐   │
 │  │  Environment Loading (python-dotenv)            │   │
-│  │  - Loads GOOGLE_API_KEY from .env               │   │
+│  │  - Loads authentication config from .env        │   │
 │  └─────────────────────────────────────────────────┘   │
 │                    │                                     │
 │                    ▼                                     │
@@ -72,7 +72,7 @@ This application uses Google's Agent Development Kit (ADK) to create an AI-power
 - Response formatting
 
 **Key Functions**:
-- `load_environment()`: Loads API keys from `.env`
+- `load_environment()`: Loads authentication configuration
 - `initialize_agent()`: Configures the AI agent with retry logic
 - `search_places()`: Executes the search with user input
 - `get_user_input()`: Handles user interaction
@@ -144,16 +144,16 @@ HttpRetryOptions(
 
 ## Security Architecture
 
-### API Key Management
+### Authentication
 ```
-.env (git-ignored) → load_dotenv() → os.environ → Agent
+.env (git-ignored, optional) → os.environ → Agent
 ```
 
 **Security Measures**:
-- ✅ API keys stored in `.env` file
+- ✅ Supports Vertex AI authentication via ADC (recommended)
+- ✅ Supports API-key authentication for Google AI Studio (optional)
 - ✅ `.env` file excluded from git via `.gitignore`
 - ✅ `.env.example` template with placeholders
-- ✅ Runtime validation of API key presence
 - ✅ No hardcoded credentials
 
 ### Error Handling
@@ -283,7 +283,19 @@ python main.py
 ## Configuration Management
 
 ### Environment Variables
+
+Choose one:
+
 ```
+GOOGLE_GENAI_USE_VERTEXAI=TRUE
+GOOGLE_CLOUD_PROJECT=<your-project>
+GOOGLE_CLOUD_LOCATION=<your-location>
+```
+
+or
+
+```
+GOOGLE_GENAI_USE_VERTEXAI=FALSE
 GOOGLE_API_KEY=<your-key>
 ```
 

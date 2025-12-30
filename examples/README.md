@@ -140,10 +140,10 @@ python main.py
 pip install -r requirements.txt
 ```
 
-### Missing API Key
+### Missing Authentication
 ```bash
 cp .env.example .env
-# Add your GOOGLE_API_KEY to .env
+# Configure authentication in .env (Vertex AI ADC recommended, or AI Studio API key)
 ```
 
 ### Pattern Not Available
