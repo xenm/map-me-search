@@ -239,7 +239,8 @@ async def search_places(
     for idx, model_name in enumerate(model_candidates, start=1):
         try:
             if idx > 1:
-                logger.info(f"Switching model to '{model_name}' and retrying")
+                safe_model_name = model_name.replace("\r", "").replace("\n", "") if isinstance(model_name, str) else str(model_name).replace("\r", "").replace("\n", "")
+                logger.info(f"Switching model to '{safe_model_name}' and retrying")
 
             agent = initialize_multi_agent_system(model_name=model_name)
             app = create_app(agent, plugins=[LoggingPlugin()])
