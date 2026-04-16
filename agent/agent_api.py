@@ -8,22 +8,14 @@ X-Proxy-Auth shared secret and Cloudflare Turnstile server-side verification.
 
 import os
 import logging
-import uuid
 import asyncio
 
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent / ".env")  # no-op when absent (Cloud Run)
-from google.adk.agents import LlmAgent, SequentialAgent
-from google.adk.models.google_llm import Gemini
-from google.adk.runners import Runner
-from google.adk.sessions import DatabaseSessionService, InMemorySessionService
-from google.adk.memory import InMemoryMemoryService
-from google.adk.tools import google_search, AgentTool, FunctionTool, preload_memory
-from google.adk.tools.tool_context import ToolContext
-from google.adk.code_executors import BuiltInCodeExecutor
-from google.adk.apps.app import App, EventsCompactionConfig
-from google.adk.plugins.logging_plugin import LoggingPlugin
+from google.adk.runners import Runner  # noqa: E402
+from google.adk.apps.app import App, EventsCompactionConfig  # noqa: E402
+from google.adk.plugins.logging_plugin import LoggingPlugin  # noqa: E402
 from google.genai import types
 from typing import Any, Dict, Optional
 import hmac

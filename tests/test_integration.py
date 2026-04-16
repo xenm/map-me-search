@@ -12,8 +12,7 @@ Tests the full request path:
 import os
 import sys
 import pytest
-import asyncio
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -24,6 +23,7 @@ os.environ.setdefault("GOOGLE_API_KEY", "fake-key-for-test")
 
 from httpx import ASGITransport, AsyncClient
 from agent.agent_api import app, _verify_turnstile
+from fastapi import HTTPException
 
 
 # ============================================================================
@@ -178,3 +178,75 @@ class TestFrontendRelayIntegration:
 
         assert resp.status_code == 403
         mock_agent.assert_not_called()
+
+
+# ============================================================================
+# Unit Tests: Turnstile Verification
+# ============================================================================
+
+class TestTurnstileVerification:
+    """Unit tests for _verify_turnstile function."""
+
+    @pytest.mark.asyncio
+    async def test_verify_turnstile_missing_secret_key(self):
+        """Test that missing TURNSTILE_SECRET_KEY raises 500 error."""
+        # Temporarily unset the secret key
+        original_secret = os.environ.get("TURNSTILE_SECRET_KEY")
+        os.environ["TURNSTILE_SECRET_KEY"] = ""
+        
+        try:
+            with pytest.raises(HTTPException) as exc_info:
+                await _verify_turnstile("fake-token")
+            assert exc_info.value.status_code == 500
+            assert "Server misconfiguration" in exc_info.value.detail
+        finally:
+            # Restore original secret
+            if original_secret:
+                os.environ["TURNSTILE_SECRET_KEY"] = original_secret
+            else:
+                os.environ.pop("TURNSTILE_SECRET_KEY", None)
+
+    @pytest.mark.asyncio
+    async def test_verify_turnstile_network_error(self):
+        """Test that network failure to Cloudflare raises 502 error."""
+        from unittest.mock import patch, AsyncMock
+        import httpx
+        
+        # Mock httpx.AsyncClient to raise HTTPError
+        with patch("agent.agent_api.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post.side_effect = httpx.HTTPError("Network error")
+            
+            with pytest.raises(HTTPException) as exc_info:
+                await _verify_turnstile("fake-token")
+            assert exc_info.value.status_code == 502
+            assert "Verification service unavailable" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_verify_turnstile_invalid_token(self):
+        """Test that invalid/expired token raises 403 error."""
+        from unittest.mock import patch, AsyncMock
+        
+        # Mock successful HTTP response but with failed verification
+        with patch("agent.agent_api.httpx.AsyncClient") as mock_client:
+            mock_response = AsyncMock()
+            mock_response.json.return_value = {"success": False, "error-codes": ["invalid-input-response"]}
+            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
+            
+            with pytest.raises(HTTPException) as exc_info:
+                await _verify_turnstile("invalid-token")
+            assert exc_info.value.status_code == 403
+            assert "Turnstile verification failed" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_verify_turnstile_success(self):
+        """Test that valid token passes verification."""
+        from unittest.mock import patch, AsyncMock
+        
+        # Mock successful HTTP response with successful verification
+        with patch("agent.agent_api.httpx.AsyncClient") as mock_client:
+            mock_response = AsyncMock()
+            mock_response.json.return_value = {"success": True}
+            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
+            
+            # Should not raise any exception
+            await _verify_turnstile("valid-token")
