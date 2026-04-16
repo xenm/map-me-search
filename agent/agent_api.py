@@ -1,14 +1,19 @@
 """
-AI-Powered Nearby Places Search Agent
-Adapted for Vertex AI Agent Engine deployment
+AI-Powered Nearby Places Search Agent API
+Deployed to Google Cloud Run
 
-This module contains the core agent logic that can be imported by the deployment entry point.
+Exposes /health and /search endpoints. Requests are authenticated via
+X-Proxy-Auth shared secret and Cloudflare Turnstile server-side verification.
 """
 
 import os
 import logging
 import uuid
 import asyncio
+
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent / ".env")  # no-op when absent (Cloud Run)
 from google.adk.agents import LlmAgent, SequentialAgent
 from google.adk.models.google_llm import Gemini
 from google.adk.runners import Runner
@@ -21,6 +26,11 @@ from google.adk.apps.app import App, EventsCompactionConfig
 from google.adk.plugins.logging_plugin import LoggingPlugin
 from google.genai import types
 from typing import Any, Dict, Optional
+import hmac
+
+import httpx
+from fastapi import FastAPI, Request, HTTPException
+from pydantic import BaseModel
 try:
     from .utils.scoring_tools import calculate_distance_score, get_place_category_boost
     from .utils import places_agent_core
@@ -82,23 +92,17 @@ async def _run_runner_collect_final_text(
     )
 
 
+_DEV_DUMMY_KEY = "test-api-key-returns-dummy-response"
+
+
 def _configure_genai_auth() -> None:
-    project = os.environ.get("GOOGLE_CLOUD_PROJECT")
-    location = os.environ.get("GOOGLE_CLOUD_LOCATION")
-    api_key = os.environ.get("GOOGLE_API_KEY")
-
-    if api_key and not (project and location):
-        os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "FALSE"
-        logger.info("Using Google AI Studio authentication (API key)")
-        return
-
-    os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "TRUE"
-    if project and location:
-        logger.info("Using Vertex AI authentication (ADC)")
-    else:
-        logger.warning(
-            "Defaulting to Vertex AI authentication (ADC). If running locally, set GOOGLE_CLOUD_PROJECT + GOOGLE_CLOUD_LOCATION, or set GOOGLE_API_KEY for AI Studio."
-        )
+    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("GOOGLE_API_KEY is not set — cannot authenticate to Gemini")
+    if api_key == _DEV_DUMMY_KEY:
+        logger.info("Dummy API key detected — LLM calls will return stub responses")
+    os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "FALSE"
+    logger.info("Gemini authentication configured (API key)")
 
 
 _configure_genai_auth()
@@ -208,7 +212,23 @@ async def search_places(
     preferences_clean = _sanitize_log_str(preferences)
     topic_clean = _sanitize_log_str(topic) if topic is not None else 'transient'
     logger.info(f"Searching in {city_name_clean} for '{preferences_clean}' (topic: {topic_clean})")
-    
+
+    # Dev stub — return canned response without calling LLM
+    if os.environ.get("GOOGLE_API_KEY") == _DEV_DUMMY_KEY:
+        await asyncio.sleep(5)
+        return (
+            f"## Dev Stub Results for {city_name}\n\n"
+            f"**Preferences:** {preferences}\n\n"
+            "1. **The Golden Cafe** — Cozy spot with great espresso and pastries. "
+            "Perfect for a relaxed morning.\n"
+            "2. **Riverside Park** — Beautiful walking trails along the river. "
+            "Great for outdoor activities.\n"
+            "3. **The Art Quarter** — Vibrant neighborhood with street art, "
+            "galleries, and independent boutiques.\n\n"
+            "*This is a dev stub response. Set a real `GOOGLE_API_KEY` in "
+            "`agent/.env` for live results.*"
+        )
+
     # Initialize services
     session_service, memory_service = initialize_services(topic)
     
@@ -272,7 +292,7 @@ async def search_places(
         if _is_quota_exhausted_error(last_error):
             return (
                 "Gemini API quota is exceeded (HTTP 429 RESOURCE_EXHAUSTED). "
-                "Try GEMINI_MODEL/GEMINI_FALLBACK_MODEL with a model that has quota, or use Vertex AI authentication."
+                "Try setting GEMINI_MODEL/GEMINI_FALLBACK_MODEL to a model that has available quota."
             )
         return (
             "The AI model is temporarily overloaded (HTTP 503). "
@@ -290,6 +310,70 @@ async def search_places(
     return final_text
 
 
-# Export the root agent for Vertex AI deployment
-root_agent = initialize_multi_agent_system()
-app = create_app(root_agent)
+# ============================================================================
+# FastAPI Application (Cloud Run entry point)
+# ============================================================================
+
+_PROXY_AUTH_TOKEN = os.environ.get("PROXY_AUTH_TOKEN", "")
+_TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "")
+_TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+
+class SearchRequest(BaseModel):
+    city: str
+    preferences: str
+    topic: Optional[str] = None
+    turnstile_token: str
+
+
+def _verify_proxy_auth(request: Request) -> None:
+    """Validate X-Proxy-Auth header. Fail-closed if token is not configured."""
+    if not _PROXY_AUTH_TOKEN:
+        logger.error("PROXY_AUTH_TOKEN not configured — rejecting request")
+        raise HTTPException(status_code=500, detail="Server misconfiguration")
+    header_value = request.headers.get("X-Proxy-Auth", "")
+    if not hmac.compare_digest(header_value, _PROXY_AUTH_TOKEN):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+
+async def _verify_turnstile(token: str) -> None:
+    """Server-side Cloudflare Turnstile verification. Rejects missing, invalid,
+    duplicate, and expired tokens."""
+    if not _TURNSTILE_SECRET_KEY:
+        logger.error("TURNSTILE_SECRET_KEY not configured — rejecting request")
+        raise HTTPException(status_code=500, detail="Server misconfiguration")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                _TURNSTILE_VERIFY_URL,
+                data={"secret": _TURNSTILE_SECRET_KEY, "response": token},
+            )
+        result = resp.json()
+    except httpx.HTTPError:
+        logger.exception("Turnstile verification request failed")
+        raise HTTPException(
+            status_code=502, detail="Verification service unavailable"
+        )
+    if not result.get("success"):
+        error_codes = result.get("error-codes", [])
+        logger.warning("Turnstile verification failed: %s", error_codes)
+        raise HTTPException(status_code=403, detail="Turnstile verification failed")
+
+
+@app.get("/health")
+async def health() -> dict:
+    return {"status": "ok"}
+
+
+@app.post("/search")
+async def search_endpoint(request: Request, body: SearchRequest) -> dict:
+    _verify_proxy_auth(request)
+    await _verify_turnstile(body.turnstile_token)
+    result = await search_places(
+        city_name=body.city,
+        preferences=body.preferences,
+        topic=body.topic,
+    )
+    return {"result": result}

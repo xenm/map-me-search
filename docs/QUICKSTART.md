@@ -1,64 +1,62 @@
-# QUICKSTART (Local)
+# QUICKSTART (Local Development)
 
-This guide gets you running locally from scratch with the fewest possible steps.
+Run both components locally with the fewest possible steps.
 
 ## Requirements
 
 - Python 3.14+
+- Gemini API key (get one from [Google AI Studio](https://aistudio.google.com/app/apikey))
 
-## 1) Install (creates `venv/`, installs deps, creates `.env`)
+## 1) Agent API
 
 ```bash
-chmod +x install.sh
-./install.sh
+# Install dependencies
+pip install -r agent/requirements.txt
+
+# Create .env from template, then add your Gemini API key
+cp agent/.env.example agent/.env
+# Edit agent/.env → set GOOGLE_API_KEY=your_key
+
+# Start the API server
+uvicorn agent.agent_api:app --port 8080
 ```
 
-## 2) Configure authentication
-
-The installer creates `.env` from `.env.example` (if missing). Edit `.env` and choose one:
-
-### Option A (recommended): Vertex AI via ADC
+The API is now running at `http://localhost:8080`. Verify with:
 
 ```bash
-gcloud auth application-default login
+curl http://localhost:8080/health
 ```
 
-Set in `.env` (or export in your shell):
+## 2) Frontend
+
+In a second terminal:
 
 ```bash
-GOOGLE_CLOUD_PROJECT=your-project-id
-GOOGLE_CLOUD_LOCATION=us-central1
+# Install dependencies
+pip install -r frontend/requirements.txt
+
+# Create .env from template (defaults to localhost:8080 + Turnstile test keys)
+cp frontend/.env.example frontend/.env
+
+# Start Gradio
+python frontend/hf_app.py
 ```
 
-### Option B (optional): Google AI Studio API key
+Open `http://localhost:7860` in your browser.
 
-Set in `.env`:
+## Optional: model selection
+
+By default the agent uses `gemini-2.5-flash` and falls back to `gemini-2.5-flash-lite` on transient 503/429 errors.
+
+Override in your shell:
 
 ```bash
-GOOGLE_API_KEY=your_api_key
+export GEMINI_MODEL=gemini-2.5-flash
+export GEMINI_FALLBACK_MODEL=gemini-2.5-flash-lite
 ```
 
-## 3) Run
+## Running tests
 
 ```bash
-source venv/bin/activate
-python main.py
-```
-
-## Optional: model selection / fallback
-
-By default the app uses `gemini-2.5-flash` and will fall back to `gemini-2.5-flash-lite` if the primary model is temporarily overloaded (HTTP 503) or quota-limited (HTTP 429).
-
-You can override this in `.env`:
-
-```bash
-GEMINI_MODEL=gemini-2.5-flash
-GEMINI_FALLBACK_MODEL=gemini-2.5-flash-lite
-```
-
-## Sanity checks
-
-```bash
-source venv/bin/activate
-python verify_setup.py
+python3 -m pytest tests/ -v
 ```

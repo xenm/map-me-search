@@ -1,0 +1,98 @@
+name: Deploy Agent API to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths: ['agent/**', 'Dockerfile', '.github/workflows/deploy-agent-api.yaml']
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: deploy-agent-api-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ============================================================================
+  # Build, push, and deploy the Agent API to Cloud Run
+  # ============================================================================
+  deploy-cloud-run:
+    name: Deploy Agent API to Cloud Run
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
+        with:
+          workload_identity_provider: '${{ vars.GCP_WIF_PROVIDER }}'
+          service_account: '${{ vars.GCP_DEPLOY_SA_EMAIL }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2.2.1
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push Docker image
+        env:
+          IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/${{ vars.CLOUD_RUN_SERVICE }}:${{ github.sha }}
+        run: |
+          docker build --tag "${IMAGE}" .
+          docker push "${IMAGE}"
+
+      - name: Deploy to Cloud Run
+        env:
+          IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPOSITORY }}/${{ vars.CLOUD_RUN_SERVICE }}:${{ github.sha }}
+        run: |
+          gcloud run deploy ${{ vars.CLOUD_RUN_SERVICE }} \
+            --image="${IMAGE}" \
+            --region=${{ vars.GCP_REGION }} \
+            --service-account=${{ vars.CLOUD_RUN_RUNTIME_SA_EMAIL }} \
+            --update-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,PROXY_AUTH_TOKEN=PROXY_AUTH_TOKEN:latest,TURNSTILE_SECRET_KEY=TURNSTILE_SECRET_KEY:latest \
+            --port=8080 \
+            --allow-unauthenticated \
+            --quiet
+
+      - name: Smoke test deployed revision
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ vars.CLOUD_RUN_SERVICE }} \
+            --region=${{ vars.GCP_REGION }} \
+            --format='value(status.url)')
+          echo "Service URL: ${SERVICE_URL}"
+
+          HTTP_STATUS=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --max-time 15 "${SERVICE_URL}/health" || true)
+
+          if [ "${HTTP_STATUS}" = "200" ]; then
+            echo "Health check passed (HTTP ${HTTP_STATUS})"
+          else
+            echo "Health check returned HTTP ${HTTP_STATUS} — review /health endpoint"
+            exit 1
+          fi
+
+  # ============================================================================
+  # Summary
+  # ============================================================================
+  deployment-summary:
+    name: Deployment Summary
+    permissions: {}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [deploy-cloud-run]
+    if: always()
+
+    steps:
+      - name: Summary
+        run: |
+          echo "==================== CLOUD RUN DEPLOYMENT SUMMARY ===================="
+          echo ""
+          echo "Agent API: ${{ needs.deploy-cloud-run.result }}"
+          echo ""
+          echo "======================================================================"

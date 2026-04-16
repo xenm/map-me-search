@@ -1,4 +1,4 @@
 """
-Agent module for Vertex AI deployment.
-This package contains the ADK agent logic for the Places Search application.
+Agent module deployed to Google Cloud Run.
+Contains the ADK multi-agent pipeline and FastAPI HTTP layer.
 """

@@ -5,51 +5,37 @@ colorFrom: blue
 colorTo: purple
 sdk: gradio
 sdk_version: 4.44.0
-app_file: app.py
+app_file: hf_app.py
 pinned: false
 license: mit
 ---
 
-# 🗺️ AI-Powered Places Search
+# AI-Powered Places Search
 
-A mini frontend for the AI Places Search agent, built with Gradio.
-
-## Features
-
-- **Topic-based Memory**: Enter a topic to save search history (uses `DatabaseSessionService`)
-- **Transient Mode**: Leave topic empty for quick searches without saving history (uses `InMemorySessionService`)
-- **Beautiful UI**: Clean, modern interface with helpful examples
-
-## Memory Modes
-
-| Topic Field | Session Service | Behavior |
-|-------------|-----------------|----------|
-| Empty | `InMemorySessionService` | Quick search, no history saved |
-| Any string | `DatabaseSessionService` | History persists under that topic |
+Thin trusted relay frontend deployed to Hugging Face Spaces.
+Collects user input and Cloudflare Turnstile token, then forwards
+requests server-side to the Cloud Run Agent API.
 
 ## Environment Variables
 
-Set these in the Space settings or `.env` file:
+Set these in the HF Space settings:
 
-- `VERTEX_AGENT_RESOURCE_ID`: Vertex AI Agent Engine resource ID
-- `VERTEX_PROJECT_ID`: Google Cloud project ID for Vertex AI
-- `VERTEX_LOCATION`: Vertex AI region
-- `GOOGLE_API_KEY`: (Optional) Google AI Studio API key (only needed if using a local agent against AI Studio)
-
-## Usage
-
-1. Enter a city name
-2. Describe your preferences
-3. (Optional) Enter a topic to save search history
-4. Click "Search Places"
+| Name | Type | Description |
+|------|------|-------------|
+| `AGENT_API_URL` | Secret | Cloud Run service URL |
+| `PROXY_AUTH_TOKEN` | Secret | Shared secret for X-Proxy-Auth header |
+| `TURNSTILE_SITE_KEY` | Variable | Cloudflare Turnstile public site key |
 
 ## Architecture
 
 ```
-┌─────────────────┐     API Calls      ┌──────────────────┐
-│  Hugging Face   │ ───────────────────▶│  Vertex AI       │
-│  (This Frontend)│ ◀─────────────────── │  Agent Engine    │
-└─────────────────┘                     └──────────────────┘
+ Browser
+ │ Turnstile challenge
+ ▼
+┌─────────────────┐  X-Proxy-Auth   ┌──────────────────┐
+│  Hugging Face   │ ──────────────▶ │  Cloud Run       │
+│  (This Relay)   │ ◀────────────── │  Agent API       │
+└─────────────────┘  JSON result    └──────────────────┘
 ```
 
-This frontend serves as the "Face" while the actual agent logic runs on Vertex AI (the "Brain").
+This frontend is a trusted relay — it does not contain agent logic or Google secrets.

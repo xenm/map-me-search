@@ -1,0 +1,75 @@
+name: Deploy Frontend to Hugging Face
+
+on:
+  push:
+    branches: [main]
+    paths: ['frontend/**', '.github/workflows/deploy-hf-app.yaml']
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: deploy-hf-app-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ============================================================================
+  # Deploy the Mini-Frontend to Hugging Face Spaces
+  # ============================================================================
+  deploy-huggingface:
+    name: Deploy Frontend to Hugging Face
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install Git LFS
+        run: git lfs install
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+      - name: Push to Hugging Face Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ vars.HF_USERNAME }}
+          SPACE_NAME: ${{ vars.HF_SPACE_NAME }}
+        run: |
+          echo "🚀 Deploying frontend to Hugging Face Spaces..."
+          cd frontend
+          
+          rm -rf .git
+          git init
+          git add .
+          git commit -m "Deploy from GitHub Actions - $(date '+%Y-%m-%d %H:%M:%S')"
+          git remote add hf https://huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME
+          git -c http.extraHeader="Authorization: Bearer $HF_TOKEN" push --force hf main
+          
+          echo "✅ Deployment to Hugging Face completed!"
+          echo "🌐 Visit: https://huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME"
+
+  # ============================================================================
+  # Summary
+  # ============================================================================
+  deployment-summary:
+    name: Deployment Summary
+    permissions: {}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [deploy-huggingface]
+    if: always()
+
+    steps:
+      - name: Summary
+        run: |
+          echo "==================== HF SPACE DEPLOYMENT SUMMARY ===================="
+          echo ""
+          echo "HF Space: ${{ needs.deploy-huggingface.result }}"
+          echo ""
+          echo "====================================================================="

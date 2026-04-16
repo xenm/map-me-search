@@ -1,6 +1,5 @@
 """
 Shared scoring tools for places search
-Common utilities used by both main.py and agent/agent.py
 """
 
 from typing import Dict
@@ -64,7 +63,7 @@ def get_place_category_boost(category: str, preferences: str) -> dict:
     # Related categories get medium boost
     food_related = ["restaurant", "cafe", "coffee", "bar", "food"]
     culture_related = ["museum", "gallery", "theater", "art"]
-    outdoor_related = ["park", "garden", "hiking", "beach"]
+    outdoor_related = ["park", "garden", "hiking", "beach", "outdoor", "nature"]
     
     if category in food_related and any(term in preferences for term in food_related):
         return {"status": "success", "boost": 2, "reason": "Food-related match"}

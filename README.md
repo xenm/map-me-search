@@ -1,311 +1,174 @@
-# 🗺️ AI-Powered Nearby Places Search Agent
+# AI-Powered Nearby Places Search Agent
 
-> **Kaggle AI Agents Intensive - Capstone Project (Concierge Agents Track)**
+An intelligent multi-agent system that searches for personalized nearby places using Google's Gemini AI and Agent Development Kit (ADK).
 
-An intelligent multi-agent system that searches for personalized nearby places using Google's Gemini AI and Agent Development Kit (ADK). The agent learns your preferences, maintains conversational context across sessions, and provides intelligent recommendations with real-time data.
+## Security Architecture (DevSecOps)
 
-## 🎯 Problem Statement
-
-Planning activities in a new city or finding places that match personal preferences is time-consuming and often requires searching through multiple sources. Users need an intelligent assistant that:
-- Understands natural language preferences
-- Provides personalized, scored recommendations
-- Remembers past conversations and preferences
-- Delivers reliable, real-time information
-
-## 💡 Solution
-
-This project demonstrates a sophisticated multi-agent system powered by Google's Gemini AI that:
-- **Researches** real-time place information using Google Search
-- **Analyzes** and scores results using custom tools and code execution
-- **Remembers** user preferences across sessions with persistent memory
-- **Presents** beautiful, personalized recommendations
-- **Tracks** performance with comprehensive observability
-- **Validates** quality through automated evaluation
-
-## ⚡ Quick Start
-
-```bash
-# 1. Run installation script (macOS/Linux)
-chmod +x install.sh
-./install.sh
-
-# 2. Configure authentication (see .env.example)
-# - Recommended: Vertex AI (ADC)
-# - Alternative: Google AI Studio (API key)
-
-# 3. Run the application
-source venv/bin/activate
-python main.py
-```
-
-## ✨ Features
-
-- 🤖 **Advanced Multi-Agent System**: Specialized AI agents with custom tools
-- 🧠 **Session Management**: Persistent conversations that survive restarts (Day 3)
-- 💾 **Memory System**: Long-term knowledge storage across sessions (Day 3)
-- 🔍 **Smart Search**: Leverages Google Search for real-time information
-- 🎯 **Intelligent Scoring**: Custom tools calculate distance and category relevance
-- 💻 **Code Execution**: Reliable mathematical calculations using BuiltInCodeExecutor
-- 🔧 **Custom Tools**: FunctionTools and AgentTools for sophisticated processing
-- 📊 **Context Compaction**: Automatic conversation summarization (Day 3)
-- 🎨 **Beautiful Formatting**: Presentation specialist creates engaging output
-- 🔄 **Reliable**: Automatic retry logic for API calls
-- 📝 **User-Friendly**: Simple command-line interface
-- 🔎 **Observability**: Comprehensive logging, traces, and metrics (Day 4)
-- 📝 **Agent Evaluation**: Automated testing and regression detection (Day 4)
-
-## 🏆 Capstone Requirements Met
-
-This submission demonstrates **8 key concepts** from the AI Agents Intensive Course:
-
-✅ **Multi-Agent System** (Sequential agents with specialized roles)  
-✅ **Custom Tools** (FunctionTools for scoring and state management)  
-✅ **Built-in Tools** (Google Search, Code Execution)  
-✅ **Agent-as-Tool** (CalculationAgent used by FilterAgent)  
-✅ **Sessions & State Management** (DatabaseSessionService with SQLite persistence)  
-✅ **Long-term Memory** (InMemoryMemoryService with auto-save callbacks)  
-✅ **Context Engineering** (EventsCompactionConfig for conversation summarization)  
-✅ **Observability** (LoggingPlugin + custom MetricsTrackingPlugin)  
-✅ **Agent Evaluation** (pytest unit tests + ADK evaluation framework)  
-
-## 📖 Documentation
-
-- [docs/QUICKSTART.md](docs/QUICKSTART.md)
-
-Older/legacy docs (including architecture deep-dives) live in `docs/old/`.
-
-## 🚀 Example Usage
+This project treats security as a first-class design constraint, not an afterthought. The architecture assumes **public source code** and enforces **zero trust at every boundary**.
 
 ```
-📍 Enter city name: Tokyo
-❤️  What do you like?: ramen and temples
-
-🔍 Searching for places in Tokyo...
-
-📍 SEARCH RESULTS
-============================================================
-1. Ichiran Ramen (Shibuya) - Famous tonkotsu ramen...
-2. Senso-ji Temple - Tokyo's oldest Buddhist temple...
-3. Afuri Ramen - Known for yuzu-infused ramen...
-...
-============================================================
+ Browser
+ │  Cloudflare Turnstile challenge (bot/abuse mitigation)
+ ▼
+┌──────────────────────┐  X-Proxy-Auth   ┌──────────────────────┐
+│  Hugging Face Space  │ ──────────────▶ │  Google Cloud Run    │
+│  (Thin Trusted Relay)│ ◀────────────── │  (Agent API)         │
+│                      │   JSON result   │                      │
+│  • Gradio UI         │                 │  • FastAPI + Uvicorn │
+│  • No GCP secrets    │                 │  • Multi-agent pipeline│
+│  • No agent logic    │                 │  • Gemini LLM calls  │
+│  • httpx relay only  │                 │  • Secret Manager    │
+└──────────────────────┘                 └──────────────────────┘
 ```
 
-## 🏗️ Architecture
+### Why this is the most secure architecture
 
-The system uses a **sequential multi-agent pipeline** where each agent has a specialized role:
+| Principle | Implementation |
+|---|---|
+| **Zero GCP secrets in GitHub** | GitHub stores only non-sensitive identifiers (`vars.*`). Runtime secrets (`PROXY_AUTH_TOKEN`, `TURNSTILE_SECRET_KEY`) live in Google Secret Manager and are injected into Cloud Run at deploy time. |
+| **Workload Identity Federation** | GitHub Actions authenticates to GCP via OIDC federation — no JSON service account keys anywhere. |
+| **Least-privilege service accounts** | `map-me-search-deploy@` can only push images and deploy one service. `map-me-search-run@` can only read its own secrets. Neither has project-wide admin roles. |
+| **Immutable container images** | Docker images are tagged with the Git SHA. Artifact Registry enforces immutable tags, vulnerability scanning, and cleanup policies. |
+| **Non-root container** | The Dockerfile creates and runs as `appuser` — no root process in production. |
+| **Minimal frontend dependencies** | The HF Space installs only `gradio`, `httpx`, and `python-dotenv`. No GCP SDK, no agent code, no AI model access. A compromised Space cannot reach Google APIs. |
+| **App-layer authentication** | Cloud Run is public at the network level (required because the caller is HF, not a Google identity), but every request must pass two checks: a shared secret (`X-Proxy-Auth` verified with constant-time comparison) and a Cloudflare Turnstile token (verified server-side against Cloudflare's API). |
+| **Fail-closed on misconfiguration** | If `PROXY_AUTH_TOKEN` or `TURNSTILE_SECRET_KEY` is missing, the API rejects all requests (HTTP 500), never falls open. |
+| **Deny-by-default GitHub Actions** | Top-level `permissions: {}` in workflows; only the deploy job gets `contents: read` + `id-token: write`. |
+| **SHA-pinned Actions** | All third-party Actions are pinned to commit SHA, not mutable tags. Dependabot monitors for updates. |
 
-### Agent Pipeline
+### Security model summary
 
-1. **ResearchAgent** - Searches for places using Google Search API
-2. **FilterAgent** - Scores and ranks results using custom tools:
-   - `calculate_distance_score()` - Proximity scoring (FunctionTool)
-   - `get_place_category_boost()` - Category matching (FunctionTool)
-   - `save_user_preferences()` - Session state management (FunctionTool)
-   - `retrieve_user_preferences()` - Session state retrieval (FunctionTool)
-   - **CalculationAgent** - Mathematical scoring via code execution (AgentTool)
-3. **FormatterAgent** - Presents beautiful, user-friendly recommendations
-
-### Infrastructure
-
-- **DatabaseSessionService**: Persistent conversations across restarts (SQLite)
-- **InMemoryMemoryService**: Long-term knowledge storage with auto-save callbacks
-- **EventsCompactionConfig**: Automatic context summarization (every 4 turns)
-- **LoggingPlugin**: Comprehensive observability and tracing
-- **MetricsTrackingPlugin**: Custom performance metrics tracking
-
-## 🛠️ Tech Stack
-
-- **Framework**: Google Agent Development Kit (ADK Python)
-- **AI Model**: Gemini 2.5 Flash (default) with fallback to Gemini 2.5 Flash Lite on transient overload/quota (503/429)
-- **Language**: Python 3.14+
-- **Database**: SQLite (session persistence)
-- **Tools**: Google Search, Custom FunctionTools, AgentTools, BuiltInCodeExecutor
-- **Testing**: pytest, ADK evaluation framework
-- **Observability**: Logging, Metrics, Tracing
-
-### System Flow Diagram
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ DatabaseSessionService (SQLite Persistence)             │
-│ + InMemoryMemoryService (Long-term Knowledge)          │
-└─────────────────────────┬───────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────┐
-│ Runner (Session + Memory + App)                         │
-│  ├─ LoggingPlugin (Observability & Tracing)            │
-│  └─ MetricsTrackingPlugin (Performance Metrics)        │
-└─────────────────────────┬───────────────────────────────┘
-                          ↓
-        ┌─────────────────┴─────────────────┐
-        ↓                                   ↓
-┌──────────────────┐              ┌──────────────────┐
-│ ResearchAgent    │              │ Context          │
-│ • Google Search  │──────────→   │ Compaction       │
-└────────┬─────────┘              │ (Every 4 turns)  │
-         ↓                        └──────────────────┘
-┌──────────────────────────────────────────────┐
-│ FilterAgent                                  │
-│  ├─ calculate_distance_score (FunctionTool) │
-│  ├─ get_place_category_boost (FunctionTool) │
-│  ├─ save_user_preferences (FunctionTool)    │
-│  ├─ retrieve_user_preferences (FunctionTool)│
-│  ├─ preload_memory (Memory retrieval)       │
-│  └─ CalculationAgent (AgentTool)            │
-│      └─ BuiltInCodeExecutor (Python code)   │
-└────────┬─────────────────────────────────────┘
-         ↓
-┌──────────────────┐
-│ FormatterAgent   │
-│ • Beautiful UI   │
-└────────┬─────────┘
-         ↓
-┌──────────────────────────────────────┐
-│ Auto-save Callback                   │
-│ → Memory persistence                 │
-└──────────────────────────────────────┘
-         ↓
-┌──────────────────────────────────────┐
-│ Outputs:                             │
-│ • places_search.log (Logs & Traces)  │
-│ • Metrics Summary (Performance)      │
-│ • User Recommendations               │
-└──────────────────────────────────────┘
-```
-
-**Learn More:**
-
-See `docs/old/` for legacy deep-dives.
-
-## 📦 Installation
-
-### Automated (Recommended)
-```bash
-chmod +x install.sh
-./install.sh
-```
-
-### Manual
-```bash
-pip3 install -r requirements.txt
-cp .env.example .env
-# Configure authentication in .env (Vertex AI ADC or GOOGLE_API_KEY)
-python3 verify_setup.py
-```
-
-## 🔐 Authentication Setup
-
-1. Copy `.env.example` to `.env`
-2. Recommended (Vertex AI): authenticate via ADC (e.g. `gcloud auth application-default login`) and set `GOOGLE_CLOUD_PROJECT` + `GOOGLE_CLOUD_LOCATION`
-3. Alternative (AI Studio): set `GOOGLE_API_KEY` from [Google AI Studio](https://aistudio.google.com/app/apikey)
-
-## 🧪 Testing & Evaluation
-
-Comprehensive testing ensures agent quality and prevents regression:
-
-### Unit Tests
-```bash
-# Test custom tools (calculate_distance_score, get_place_category_boost)
-python3 -m pytest tests/test_tools.py -v
-```
-
-### Integration Evaluation
-```bash
-# Run all evaluations (unit + integration)
-python3 run_evaluation.py
-
-# Run with detailed results
-python3 run_evaluation.py --detailed
-
-# Show evaluation summary
-python3 run_evaluation.py --summary
-```
-
-### Observability
-```bash
-# Run the app (generates logs and metrics)
-python3 main.py
-
-# View comprehensive logs
-cat places_search.log
-```
-
-**Evaluation Files:**
-- `tests/test_tools.py` - Unit tests for custom tools
-- `tests/integration.evalset.json` - Integration test cases
-- `tests/test_config.json` - Evaluation configuration
-
-**Success Criteria:**
-- Tool trajectory match: ≥70%
-- Response similarity: ≥60%
-- All unit tests passing
-
-## 📋 Requirements
-
-- **Python 3.14+**
-- Authentication for Gemini:
-  - Recommended: Vertex AI via ADC (e.g. `gcloud auth application-default login`)
-  - Optional: Google AI Studio API key (free tier available at [AI Studio](https://aistudio.google.com/app/apikey))
-- Internet connection for Google Search API
-- ~50MB disk space for dependencies
-
-## 🎓 Educational Value
-
-This project demonstrates production-ready patterns for building AI agents:
-- **Multi-agent orchestration** with clear separation of concerns
-- **Tool composition** (FunctionTools + AgentTools + Built-in Tools)
-- **State management** across sessions with persistence
-- **Memory systems** for long-term knowledge retention
-- **Context optimization** to manage token limits
-- **Observability** for debugging and performance monitoring
-- **Quality assurance** through automated evaluation
-
-## 🎯 Use Cases
-
-This architecture can be adapted for:
-- Travel planning and itinerary creation
-- Restaurant and activity recommendations
-- Event discovery and planning
-- Local business search
-- Real estate and neighborhood exploration
-
-## 📄 License
-
-See [LICENSE](LICENSE) file for details.
-
-## 🆘 Troubleshooting
-
-- **Diagnostics**: Run `python3 verify_setup.py`
-- **Legacy docs**: See `docs/old/`
+- **Browser ↔ HF Space**: Turnstile widget proves the user is human
+- **HF Space ↔ Cloud Run**: shared secret header proves the caller is the trusted relay
+- **Cloud Run ↔ Cloudflare**: server-side Turnstile verification proves the token is valid, single-use, and not expired
+- **GitHub ↔ GCP**: WIF + OIDC proves the caller is this repo's main branch
+- **Cloud Run ↔ Secret Manager**: runtime SA proves the container is authorized to read secrets
 
 ---
 
-## 📊 Project Stats
+## Quick Start (Local Development)
 
-- **Lines of Code**: ~800 (main.py + observability_plugin.py)
-- **Agents**: 4 (Research, Filter, Calculation, Formatter)
-- **Custom Tools**: 4 FunctionTools + 1 AgentTool
-- **Test Coverage**: Unit tests + Integration evaluation
-- **Documentation**: 25+ markdown files
+See [docs/QUICKSTART.md](docs/QUICKSTART.md) for full setup instructions.
 
-## 🏅 Kaggle AI Agents Intensive
+```bash
+# Agent API (terminal 1)
+cp agent/.env.example agent/.env   # edit GCP project + auth
+uvicorn agent.agent_api:app --port 8080
 
-**Track**: Concierge Agents  
-**Submission Date**: November 2025  
-**Key Concepts**: 8/9 course concepts implemented  
-**Model**: Gemini 2.5 Flash (default)  
+# Frontend (terminal 2)
+cp frontend/.env.example frontend/.env
+python frontend/hf_app.py
+```
 
-### Optional model configuration
+## Architecture
 
-You can override the default model selection via environment variables:
+### Deployment
+
+| Component | Runtime | Entry point | Deployment |
+|---|---|---|---|
+| Agent API | Google Cloud Run | `agent/agent_api.py` | `deploy-agent-api.yaml` |
+| Frontend | Hugging Face Spaces | `frontend/hf_app.py` | `deploy-hf-app.yaml` |
+
+### Agent Pipeline
+
+The API runs a **sequential multi-agent pipeline** via Google ADK:
+
+1. **ResearchAgent** — searches for places using Google Search
+2. **FilterAgent** — scores and ranks results using custom tools:
+   - `calculate_distance_score()` — proximity scoring
+   - `get_place_category_boost()` — category matching
+   - `save_user_preferences()` / `retrieve_user_preferences()` — session state
+   - **CalculationAgent** — mathematical scoring via code execution (AgentTool)
+3. **FormatterAgent** — presents user-friendly recommendations
+
+### Infrastructure
+
+- **Session management**: `DatabaseSessionService` (persistent) or `InMemorySessionService` (transient), selected by optional topic field
+- **Memory**: `InMemoryMemoryService` with auto-save callbacks
+- **Context compaction**: `EventsCompactionConfig` (every 4 turns)
+- **Observability**: `LoggingPlugin` for tracing
+- **Model fallback**: Gemini 2.5 Flash → Gemini 2.5 Flash Lite on 503/429
+
+## Tech Stack
+
+- **AI Framework**: Google Agent Development Kit (ADK)
+- **AI Model**: Gemini 2.5 Flash (with automatic fallback)
+- **API**: FastAPI + Uvicorn
+- **Frontend**: Gradio
+- **Language**: Python 3.14
+- **Container**: Docker (python:3.14-slim, non-root)
+- **CI/CD**: GitHub Actions (SHA-pinned, WIF auth)
+- **Secrets**: Google Secret Manager
+- **Registry**: Google Artifact Registry (immutable tags, vulnerability scanning)
+- **Bot protection**: Cloudflare Turnstile
+- **Testing**: pytest
+
+## Repository Structure
+
+```
+├── agent/
+│   ├── agent_api.py          # FastAPI app (Cloud Run entry point)
+│   ├── requirements.txt
+│   ├── .env.example
+│   ├── __init__.py
+│   └── utils/
+│       ├── places_agent_core.py   # Multi-agent pipeline logic
+│       └── scoring_tools.py       # Distance/category scoring
+├── frontend/
+│   ├── hf_app.py             # Gradio relay app (HF Space entry point)
+│   ├── requirements.txt
+│   ├── .env.example
+│   └── README.md             # HF Space metadata (YAML frontmatter)
+├── tests/
+│   └── test_tools.py         # Unit tests for scoring tools
+├── .github/
+│   ├── workflows/
+│   │   ├── deploy-agent-api.yaml
+│   │   ├── deploy-hf-app.yaml
+│   │   └── qodana_code_quality.yml
+│   ├── dependabot.yml
+│   └── FUNDING.yml
+├── Dockerfile                # Cloud Run container (non-root, 3.14-slim)
+├── .dockerignore
+├── SECURITY.md
+└── LICENSE
+```
+
+## Testing
+
+```bash
+python3 -m pytest tests/ -v
+```
+
+## Environment Variables
+
+### Agent API (Cloud Run — injected via Secret Manager)
+
+| Variable | Source | Note |
+|---|---|---|
+| `GOOGLE_API_KEY` | Secret Manager | Gemini API key |
+| `PROXY_AUTH_TOKEN` | Secret Manager | Shared secret for relay auth |
+| `TURNSTILE_SECRET_KEY` | Secret Manager | Cloudflare Turnstile server-side secret |
+
+### Frontend (HF Space — set in Space settings)
+
+| Variable | Type | Description |
+|---|---|---|
+| `AGENT_API_URL` | Secret | Cloud Run service URL |
+| `PROXY_AUTH_TOKEN` | Secret | Shared secret for relay |
+| `TURNSTILE_SITE_KEY` | Variable | Cloudflare Turnstile public key |
+
+### Optional model override
 
 ```bash
 GEMINI_MODEL=gemini-2.5-flash
 GEMINI_FALLBACK_MODEL=gemini-2.5-flash-lite
 ```
 
+## License
+
+See [LICENSE](LICENSE) file for details.
+
 ---
 
-**Built with** ❤️ **using Google Agent Development Kit (ADK Python)**  
-**Course**: [5-Day AI Agents Intensive with Google](https://www.kaggle.com/competitions/agents-intensive-capstone-project)
+**Built with [Google ADK](https://ai.google.dev/adk), [FastAPI](https://fastapi.tiangolo.com), and [Gradio](https://gradio.app)**
