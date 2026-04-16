@@ -1,0 +1,310 @@
+manifest:
+  version: "0.1.3"
+  schema: https://a2as.org/cert/schema
+  subject:
+    name: xenm/map-me-search
+    source: https://github.com/xenm/map-me-search
+    branch: main
+    commit: "910369c9"
+    scope: [observability_plugin.py, main.py]
+  issued:
+    by: A2AS.org
+    at: '2026-02-11T17:06:50Z'
+    url: https://a2as.org/certified/agents/xenm/map-me-search
+  signatures:
+    digest: sha256:M4f-gttGDPU8F0lek5nnPE2De52dTeYQzGCd1NtV48w
+    key: ed25519:MKmqEWcO22d9IW4csYGGYeyvYmvOyHh8Ct5okQ9SsAM
+    sig: ed25519:fRvlpylphqX0E1x06ipIZcyiMX0CQesOnHwjCv2mb3NUIyHfz_XAXQd3bUkdXuiYZmyIs3EAtmOe_wBu4tGhBw
+
+agents:
+  agent:
+    type: instance
+    params:
+      name: EnhancedPlacesSearchPipeline
+      function: initialize_multi_agent_system
+      sub_agents: [research_agent, filter_agent, formatter_agent]
+  calculation_agent:
+    type: instance
+    models: [gemini-2.5-flash]
+    params:
+      name: CalculationAgent
+      instruction: [You are a specialized calculator that ONLY responds with Python code., Your task is to take scoring data
+          and calculate final relevance scores., '**RULES:**', 1. Your output MUST be ONLY a Python code block, 2. Do NOT
+          write any text before or after the code, 3. The Python code MUST calculate the result, 4. The Python code MUST print
+          the final result to stdout, 5. You are PROHIBITED from performing the calculation yourself, Generate Python code
+          that calculates weighted scores based on the provided data.]
+      code_executor: BuiltInCodeExecutor
+      output_key: calculation_results
+      function: initialize_multi_agent_system
+  filter_agent:
+    type: instance
+    models: [gemini-2.5-flash]
+    tools: [calculate_distance_score, get_place_category_boost, save_user_preferences, retrieve_user_preferences, calculation_agent,
+      preload_memory]
+    params:
+      name: FilterAgent
+      instruction: [You are a filtering and ranking specialist. Review the research findings from the previous agent., 'Your
+          task:', '1. For each place, use get_place_category_boost() to calculate category relevance', '2. If distance data
+          is available, use calculate_distance_score() for location scoring', 3. Use the CalculationAgent to generate Python
+          code that combines scores into a final rating (1-10), 4. Check "status" field in each tool response for errors,
+        5. Select the top 5 highest-scoring places, 6. Organize by final score (highest first), 'Output a curated list with:',
+        '- Place name', '- Final score (1-10)', '- Score breakdown (category boost, distance score, etc.)', '- Reasoning for
+          selection']
+      output_key: filtered_results
+      after_agent_callback: auto_save_to_memory
+      function: initialize_multi_agent_system
+  formatter_agent:
+    type: instance
+    models: [gemini-2.5-flash]
+    params:
+      name: FormatterAgent
+      instruction: [You are a presentation specialist. Review the filtered and scored places from the previous agent., 'Create
+          a beautifully formatted recommendation guide with:', '📍 For each place:', • Name and type (bold), • Final relevance
+          score (⭐ 1-10), • Clear description (2-3 sentences), • Why it's perfect for the user's preferences, • Score breakdown
+          (if available), 'Make it engaging, easy to read, and helpful. Use emojis strategically.', End with a friendly summary
+          of the recommendations.]
+      output_key: final_recommendations
+      function: initialize_multi_agent_system
+  research_agent:
+    type: instance
+    models: [gemini-2.5-flash]
+    tools: [google_search]
+    params:
+      name: ResearchAgent
+      instruction: [You are a specialized research agent. Your only job is to use the google_search tool, 'to find relevant
+          places, attractions, restaurants, and activities.', 'Search for 5-7 specific places that match the user''s interests.
+          For each place, gather:', '- Name of the place', '- Type (restaurant, museum, park, etc.)', '- Brief description',
+        '- Approximate distance from city center (if available)', '- Why it matches the preferences', Present your findings
+          as structured data with clear details for each place.]
+      output_key: research_findings
+      function: initialize_multi_agent_system
+
+models:
+  gemini-2.5-flash:
+    type: function
+    agents: [research_agent, calculation_agent, filter_agent, formatter_agent]
+    params:
+      wrapper: Gemini
+      model: gemini-2.5-flash
+      retry_options: retry_config
+
+tools:
+  BuiltInCodeExecutor:
+    type: module
+    params:
+      class: BuiltInCodeExecutor
+  calculate_distance_score:
+    type: wrapper
+    agents: [filter_agent]
+    params:
+      wrapper: FunctionTool
+      wraps: calculate_distance_score
+      description: "Calculates a relevance score based on distance from city center.\n\nArgs:\n    distance_km: Distance in\
+        \ kilometers from city center\n    \nReturns:\n    Dictionary with status and score.\n    Success: {\"status\": \"\
+        success\", \"score\": 10}\n    Error: {\"status\": \"error\", \"error_message\": \"Invalid distance\"}"
+  calculation_agent:
+    type: agent
+    agents: [filter_agent]
+    params:
+      wrapper: AgentTool
+      agent: calculation_agent
+  get_place_category_boost:
+    type: wrapper
+    agents: [filter_agent]
+    params:
+      wrapper: FunctionTool
+      wraps: get_place_category_boost
+      description: "Calculates a boost score based on how well a category matches preferences.\n\nArgs:\n    category: Category\
+        \ of the place (e.g., \"restaurant\", \"museum\")\n    preferences: User's stated preferences\n    \nReturns:\n  \
+        \  Dictionary with status and boost score.\n    Success: {\"status\": \"success\", \"boost\": 2}\n    Error: {\"status\"\
+        : \"error\", \"error_message\": \"...\"}"
+  google_search:
+    type: module
+    agents: [research_agent]
+  preload_memory:
+    type: function
+    agents: [filter_agent]
+  retrieve_user_preferences:
+    type: wrapper
+    agents: [filter_agent]
+    params:
+      wrapper: FunctionTool
+      wraps: retrieve_user_preferences
+      description: "Retrieve user's previously saved city and preferences from session state.\n\nArgs:\n    tool_context:\
+        \ Context providing access to session state\n    \nReturns:\n    Dictionary with status and data.\n    Success: {\"\
+        status\": \"success\", \"city\": \"...\", \"preferences\": \"...\"}"
+  save_user_preferences:
+    type: wrapper
+    agents: [filter_agent]
+    params:
+      wrapper: FunctionTool
+      wraps: save_user_preferences
+      description: "Save user's city and preferences to session state for reuse across conversation.\n\nArgs:\n    tool_context:\
+        \ Context providing access to session state\n    city: City name the user is searching in\n    preferences: User's\
+        \ stated preferences\n    \nReturns:\n    Dictionary with status.\n    Success: {\"status\": \"success\"}"
+
+teams:
+  root_agent:
+    type: sequential
+    agents: [root_agent, research_agent, filter_agent, formatter_agent]
+
+imports:
+  AgentTool: google.adk.tools.AgentTool
+  Any: typing.Any
+  App: google.adk.apps.app.App
+  asyncio: asyncio
+  BaseAgent: google.adk.agents.base_agent.BaseAgent
+  BasePlugin: google.adk.plugins.base_plugin.BasePlugin
+  BuiltInCodeExecutor: google.adk.code_executors.BuiltInCodeExecutor
+  CallbackContext: google.adk.agents.callback_context.CallbackContext
+  DatabaseSessionService: google.adk.sessions.DatabaseSessionService
+  Dict: typing.Dict
+  EventsCompactionConfig: google.adk.apps.app.EventsCompactionConfig
+  FunctionTool: google.adk.tools.FunctionTool
+  Gemini: google.adk.models.google_llm.Gemini
+  google_search: google.adk.tools.google_search
+  InMemoryMemoryService: google.adk.memory.InMemoryMemoryService
+  InMemorySessionService: google.adk.sessions.InMemorySessionService
+  LlmAgent: google.adk.agents.LlmAgent
+  LlmRequest: google.adk.models.llm_request.LlmRequest
+  LlmResponse: google.adk.models.llm_response.LlmResponse
+  load_dotenv: dotenv.load_dotenv
+  load_memory: google.adk.tools.load_memory
+  logging: logging
+  LoggingPlugin: google.adk.plugins.logging_plugin.LoggingPlugin
+  MetricsTrackingPlugin: observability_plugin.MetricsTrackingPlugin
+  os: os
+  preload_memory: google.adk.tools.preload_memory
+  Runner: google.adk.runners.Runner
+  SequentialAgent: google.adk.agents.SequentialAgent
+  sys: sys
+  time: time
+  ToolContext: google.adk.tools.tool_context.ToolContext
+  traceback: traceback
+  types: google.genai.types
+
+functions:
+  __init__:
+    type: sync
+    module: observability_plugin
+    args: [self]
+    params:
+      returns: None
+  after_agent_callback:
+    type: async
+    module: observability_plugin
+    args: [self]
+    params:
+      returns: None
+  after_model_callback:
+    type: async
+    module: observability_plugin
+    args: [self]
+    params:
+      returns: None
+  auto_save_to_memory:
+    type: async
+    module: main
+    args: [callback_context]
+  before_agent_callback:
+    type: async
+    module: observability_plugin
+    args: [self]
+    params:
+      returns: None
+  before_model_callback:
+    type: async
+    module: observability_plugin
+    args: [self]
+    params:
+      returns: None
+  before_tool_callback:
+    type: async
+    module: observability_plugin
+    args: [self]
+    params:
+      returns: None
+  calculate_distance_score:
+    type: sync
+    module: main
+    args: [distance_km]
+    params:
+      returns: dict
+  check_python_version:
+    type: sync
+    module: main
+  configure_logging:
+    type: sync
+    module: main
+    args: [log_level, log_file]
+  create_app_with_compaction:
+    type: sync
+    module: main
+    args: [root_agent, plugins]
+  get_metrics_summary:
+    type: sync
+    module: observability_plugin
+    args: [self]
+    params:
+      returns: Dict
+  get_place_category_boost:
+    type: sync
+    module: main
+    args: [category, preferences]
+    params:
+      returns: dict
+  get_user_input:
+    type: sync
+    module: main
+  initialize_multi_agent_system:
+    type: sync
+    module: main
+  initialize_services:
+    type: sync
+    module: main
+  load_environment:
+    type: sync
+    module: main
+  log_metrics_summary:
+    type: sync
+    module: observability_plugin
+    args: [self]
+    params:
+      returns: None
+  main:
+    type: async
+    module: main
+  print_response:
+    type: sync
+    module: main
+    args: [response]
+  retrieve_user_preferences:
+    type: sync
+    module: main
+    args: [tool_context]
+    params:
+      returns: Dict
+  save_user_preferences:
+    type: sync
+    module: main
+    args: [tool_context, city, preferences]
+    params:
+      returns: Dict
+  search_places:
+    type: async
+    module: main
+    args: [city_name, preferences, session_id, enable_logging_plugin, enable_metrics_plugin]
+
+variables:
+  GOOGLE_API_KEY:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [main]
+
+files:
+  log_file:
+    type: variable
+    actions: [read, delete]
+    params:
+      caller: [os.path.exists, os.remove]
