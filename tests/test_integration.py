@@ -211,7 +211,7 @@ class TestTurnstileVerification:
 
         # The head parameter must be an f-string to properly escape {{ and }}
         assert has_f_string, (
-            "The head parameter in gr.Blocks must be an f-string (head=f\"\"\") "
+            'The head parameter in gr.Blocks must be an f-string (head=f""") '
             "to properly escape JavaScript braces. Without the 'f' prefix, "
             "{{ and }} remain as double braces in the output, causing JavaScript syntax errors."
         )
