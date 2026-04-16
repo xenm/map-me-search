@@ -1,4 +1,6 @@
-# AI-Powered Nearby Places Search Agent
+# MapMe Search
+
+[![A2AS-CERTIFIED](https://img.shields.io/badge/A2AS-CERTIFIED-f3af80)](https://www.a2as.org/certified/agents/xenm/map-me-search?utm_source=github&utm_medium=pull_request) 
 
 An intelligent multi-agent system that searches for personalized nearby places using Google's Gemini AI and Agent Development Kit (ADK).
 
