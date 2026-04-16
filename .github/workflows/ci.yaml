@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Set up Python
-        uses: actions/setup-python@82c7e631bb3cdc910f2e2811f994b5de5f914db7 # v5.1.0
+        uses: actions/setup-python@v5 # v5.1.0
         with:
           python-version: '3.14'
 
@@ -61,7 +61,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Set up Python
-        uses: actions/setup-python@82c7e631bb3cdc910f2e2811f994b5de5f914db7 # v5.1.0
+        uses: actions/setup-python@v5 # v5.1.0
         with:
           python-version: '3.14'
 
@@ -90,7 +90,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Set up Python
-        uses: actions/setup-python@82c7e631bb3cdc910f2e2811f994b5de5f914db7 # v5.1.0
+        uses: actions/setup-python@v5 # v5.1.0
         with:
           python-version: '3.14'
 
