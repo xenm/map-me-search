@@ -3,6 +3,9 @@
 
 # Rider
 .idea/
+
+# Windsurf
+.windsurf/
 *.sln.iml
 
 # Byte-compiled / optimized / DLL files
