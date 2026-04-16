@@ -132,7 +132,7 @@ custom_css = """
 # Build the Gradio interface
 with gr.Blocks(
     title="AI Places Search",
-    head="""
+    head=f"""
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <script>
     function onTurnstileSuccess(token) {{

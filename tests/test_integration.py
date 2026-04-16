@@ -62,7 +62,7 @@ class TestSearchEndToEnd:
     @pytest.mark.asyncio
     async def test_valid_search_returns_result(self, mock_turnstile, mock_agent):
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with AsyncClient(transport=transport, base_url="https://test") as client:
             resp = await client.post(
                 "/search",
                 json={
@@ -85,7 +85,7 @@ class TestSearchEndToEnd:
     @pytest.mark.asyncio
     async def test_search_with_topic(self, mock_turnstile, mock_agent):
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with AsyncClient(transport=transport, base_url="https://test") as client:
             resp = await client.post(
                 "/search",
                 json={
@@ -106,7 +106,7 @@ class TestSearchEndToEnd:
     @pytest.mark.asyncio
     async def test_missing_proxy_auth_rejected(self, mock_turnstile, mock_agent):
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with AsyncClient(transport=transport, base_url="https://test") as client:
             resp = await client.post(
                 "/search",
                 json={
@@ -121,7 +121,7 @@ class TestSearchEndToEnd:
     @pytest.mark.asyncio
     async def test_wrong_proxy_auth_rejected(self, mock_turnstile, mock_agent):
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with AsyncClient(transport=transport, base_url="https://test") as client:
             resp = await client.post(
                 "/search",
                 json={
@@ -148,7 +148,7 @@ class TestFrontendRelayIntegration:
         """Frontend relay → Agent API /search → mocked agent → response."""
         transport = ASGITransport(app=app)
 
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with AsyncClient(transport=transport, base_url="https://test") as client:
             # Simulate what _relay_search does
             payload = {
                 "city": "Prague",
@@ -169,7 +169,7 @@ class TestFrontendRelayIntegration:
         """Frontend relay with wrong token gets 403."""
         transport = ASGITransport(app=app)
 
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
+        async with AsyncClient(transport=transport, base_url="https://test") as client:
             resp = await client.post(
                 "/search",
                 json={
