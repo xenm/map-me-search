@@ -12,22 +12,22 @@ import asyncio
 
 from pathlib import Path
 from dotenv import load_dotenv
+
 load_dotenv(Path(__file__).resolve().parent / ".env")  # no-op when absent (Cloud Run)
 from google.adk.runners import Runner  # noqa: E402
-from google.adk.apps.app import App, EventsCompactionConfig  # noqa: E402
 from google.adk.plugins.logging_plugin import LoggingPlugin  # noqa: E402
-from google.genai import types
-from typing import Any, Dict, Optional
-import hmac
+from google.adk.tools.tool_context import ToolContext  # noqa: E402
+from google.genai import types  # noqa: E402
+from typing import Any, Dict, Optional  # noqa: E402
+import hmac  # noqa: E402
 
-import httpx
-from fastapi import FastAPI, Request, HTTPException
-from pydantic import BaseModel
+import httpx  # noqa: E402
+from fastapi import FastAPI, Request, HTTPException  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
+
 try:
-    from .utils.scoring_tools import calculate_distance_score, get_place_category_boost
     from .utils import places_agent_core
 except ImportError:
-    from utils.scoring_tools import calculate_distance_score, get_place_category_boost
     from utils import places_agent_core
 
 try:
@@ -39,12 +39,12 @@ except ImportError:  # pragma: no cover
 
 # Configure logging for cloud environment
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 # Constants
+
 
 def _is_transient_model_error(exc: BaseException) -> bool:
     return places_agent_core._is_transient_model_error(exc)
@@ -106,7 +106,9 @@ _configure_genai_auth()
 # NOTE: calculate_distance_score and get_place_category_boost are now imported from utils.scoring_tools
 
 
-def save_user_preferences(tool_context: ToolContext, city: str, preferences: str) -> Dict[str, Any]:
+def save_user_preferences(
+    tool_context: ToolContext, city: str, preferences: str
+) -> Dict[str, Any]:
     """Save user's city and preferences to session state."""
     return places_agent_core.save_user_preferences(
         tool_context=tool_context,
@@ -124,6 +126,7 @@ def retrieve_user_preferences(tool_context: ToolContext) -> Dict[str, Any]:
 # Agent System Initialization
 # ============================================================================
 
+
 def initialize_multi_agent_system(model_name: Optional[str] = None):
     """Initialize the multi-agent system for places search."""
     logger.info("Initializing Multi-Agent System...")
@@ -137,26 +140,32 @@ def initialize_multi_agent_system(model_name: Optional[str] = None):
 def initialize_services(topic: Optional[str] = None):
     """
     Initialize Session and Memory services based on topic.
-    
+
     Args:
         topic: If provided, use DatabaseSessionService for persistence.
                If None/empty, use InMemorySessionService for transient session.
-    
+
     Returns:
         Tuple of (session_service, memory_service)
     """
-    topic_str = topic if topic is not None else 'None (transient)'
-    topic_str = topic_str.replace('\r', '').replace('\n', '')
+    topic_str = topic if topic is not None else "None (transient)"
+    topic_str = topic_str.replace("\r", "").replace("\n", "")
     logger.info(f"Initializing services with topic: {topic_str}")
 
-    session_service, memory_service, using_database, db_error = places_agent_core.initialize_services(topic)
+    session_service, memory_service, using_database, db_error = (
+        places_agent_core.initialize_services(topic)
+    )
 
     if topic:
         if using_database:
-            topic_sanitized = topic.replace('\r', '').replace('\n', '')
-            logger.info(f"DatabaseSessionService initialized for topic '{topic_sanitized}'")
+            topic_sanitized = topic.replace("\r", "").replace("\n", "")
+            logger.info(
+                f"DatabaseSessionService initialized for topic '{topic_sanitized}'"
+            )
         else:
-            logger.warning(f"DatabaseSessionService failed: {db_error}, falling back to InMemory")
+            logger.warning(
+                f"DatabaseSessionService failed: {db_error}, falling back to InMemory"
+            )
     else:
         logger.info("InMemorySessionService initialized (transient mode)")
 
@@ -179,31 +188,34 @@ def create_app(root_agent, plugins=None):
 # Sanitize strings before logging to prevent log injection
 def _sanitize_log_str(s):
     if s is None:
-        return ''
-    return str(s).replace('\r', '').replace('\n', '')
+        return ""
+    return str(s).replace("\r", "").replace("\n", "")
+
 
 async def search_places(
     city_name: str,
     preferences: str,
     topic: Optional[str] = None,
-    user_id: str = "default_user"
+    user_id: str = "default_user",
 ) -> str:
     """
     Search for nearby places based on city and preferences.
-    
+
     Args:
         city_name: The name of the city to search in
         preferences: What the user likes
         topic: Optional topic for session persistence. If None, uses transient session.
         user_id: User identifier for session management
-    
+
     Returns:
         String with formatted recommendations
     """
     city_name_clean = _sanitize_log_str(city_name)
     preferences_clean = _sanitize_log_str(preferences)
-    topic_clean = _sanitize_log_str(topic) if topic is not None else 'transient'
-    logger.info(f"Searching in {city_name_clean} for '{preferences_clean}' (topic: {topic_clean})")
+    topic_clean = _sanitize_log_str(topic) if topic is not None else "transient"
+    logger.info(
+        f"Searching in {city_name_clean} for '{preferences_clean}' (topic: {topic_clean})"
+    )
 
     # Dev stub — return canned response without calling LLM
     if os.environ.get("GOOGLE_API_KEY") == _DEV_DUMMY_KEY:
@@ -223,12 +235,12 @@ async def search_places(
 
     # Initialize services
     session_service, memory_service = initialize_services(topic)
-    
+
     # Generate session ID based on topic
     session_id = places_agent_core.generate_session_id(user_id=user_id, topic=topic)
-    
+
     model_candidates = _get_model_candidates()
-    
+
     # Create or retrieve session
     app_name = "PlacesSearchApp"
     session, _created_new = await places_agent_core.create_or_retrieve_session(
@@ -237,13 +249,13 @@ async def search_places(
         user_id=user_id,
         session_id=session_id,
     )
-    
+
     # Create prompt
     prompt = (
         f"Find nearby places in {city_name} for someone who likes {preferences}. "
         f"Provide specific recommendations with names, brief descriptions, and why they would enjoy them."
     )
-    
+
     query_content = types.Content(role="user", parts=[types.Part(text=prompt)])
 
     final_text = ""
@@ -251,7 +263,11 @@ async def search_places(
     for idx, model_name in enumerate(model_candidates, start=1):
         try:
             if idx > 1:
-                safe_model_name = model_name.replace("\r", "").replace("\n", "") if isinstance(model_name, str) else str(model_name).replace("\r", "").replace("\n", "")
+                safe_model_name = (
+                    model_name.replace("\r", "").replace("\n", "")
+                    if isinstance(model_name, str)
+                    else str(model_name).replace("\r", "").replace("\n", "")
+                )
                 logger.info(f"Switching model to '{safe_model_name}' and retrying")
 
             agent = initialize_multi_agent_system(model_name=model_name)
@@ -290,7 +306,7 @@ async def search_places(
             "The AI model is temporarily overloaded (HTTP 503). "
             "Please try again later, or configure GEMINI_MODEL / GEMINI_FALLBACK_MODEL."
         )
-    
+
     # Save to memory if topic is provided
     if topic:
         try:
@@ -298,7 +314,7 @@ async def search_places(
             logger.info("Session saved to memory")
         except (ValueError, RuntimeError, ConnectionError) as e:
             logger.warning(f"Memory save failed: {e}")
-    
+
     return final_text
 
 
@@ -345,9 +361,7 @@ async def _verify_turnstile(token: str) -> None:
         result = resp.json()
     except httpx.HTTPError:
         logger.exception("Turnstile verification request failed")
-        raise HTTPException(
-            status_code=502, detail="Verification service unavailable"
-        )
+        raise HTTPException(status_code=502, detail="Verification service unavailable")
     if not result.get("success"):
         error_codes = result.get("error-codes", [])
         logger.warning("Turnstile verification failed: %s", error_codes)

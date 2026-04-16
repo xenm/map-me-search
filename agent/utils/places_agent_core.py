@@ -22,7 +22,9 @@ except ImportError:  # pragma: no cover
     genai_errors = None
 
 
-def save_user_preferences(tool_context: ToolContext, city: str, preferences: str) -> Dict[str, Any]:
+def save_user_preferences(
+    tool_context: ToolContext, city: str, preferences: str
+) -> Dict[str, Any]:
     tool_context.state["user:last_city"] = city
     tool_context.state["user:last_preferences"] = preferences
     return {"status": "success", "message": f"Saved preferences for {city}"}
@@ -40,7 +42,9 @@ def retrieve_user_preferences(tool_context: ToolContext) -> Dict[str, Any]:
 
 
 def _is_transient_model_error(exc: BaseException) -> bool:
-    if genai_errors is not None and isinstance(exc, getattr(genai_errors, "ServerError", ())):
+    if genai_errors is not None and isinstance(
+        exc, getattr(genai_errors, "ServerError", ())
+    ):
         try:
             status_code = getattr(exc, "status_code", None)
             if status_code == 503:
@@ -125,9 +129,13 @@ def initialize_multi_agent_system(
     announce: Optional[Callable[[str], None]] = None,
 ):
     if announce is not None:
-        announce("\n🔧 Initializing Enhanced Multi-Agent System with Sessions & Memory...")
+        announce(
+            "\n🔧 Initializing Enhanced Multi-Agent System with Sessions & Memory..."
+        )
 
-    model_name = (model_name or os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash").strip()
+    model_name = (
+        model_name or os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash"
+    ).strip()
 
     retry_config = types.HttpRetryOptions(
         attempts=5,
@@ -221,7 +229,9 @@ Output a curated list with:
 
     filter_agent = LlmAgent(**filter_agent_kwargs)
     if announce is not None:
-        announce("✅ FilterAgent created (with custom FunctionTools + AgentTool + Memory)")
+        announce(
+            "✅ FilterAgent created (with custom FunctionTools + AgentTool + Memory)"
+        )
 
     formatter_agent = LlmAgent(
         name="FormatterAgent",
@@ -255,7 +265,9 @@ End with a friendly summary of the recommendations.""",
 
     if announce is not None:
         announce("\n✅ Enhanced Multi-Agent Pipeline created")
-        announce("📋 Pipeline: ResearchAgent → FilterAgent (with tools) → FormatterAgent")
+        announce(
+            "📋 Pipeline: ResearchAgent → FilterAgent (with tools) → FormatterAgent"
+        )
         announce("🔧 Custom Tools: calculate_distance_score, get_place_category_boost")
         announce("🤖 Agent Tools: CalculationAgent (code executor)")
         announce("💾 Session State: save_user_preferences, retrieve_user_preferences")
@@ -331,4 +343,6 @@ async def create_or_retrieve_session(
             )
             return session, False
         except (ValueError, RuntimeError, ConnectionError) as retrieve_error:
-            raise RuntimeError(f"Failed to create or retrieve session: {retrieve_error}")
+            raise RuntimeError(
+                f"Failed to create or retrieve session: {retrieve_error}"
+            )

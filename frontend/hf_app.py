@@ -32,7 +32,9 @@ PROXY_AUTH_TOKEN = os.environ.get("PROXY_AUTH_TOKEN", "")
 TURNSTILE_SITE_KEY = os.environ.get("TURNSTILE_SITE_KEY", "")
 
 if not PROXY_AUTH_TOKEN:
-    logger.warning("PROXY_AUTH_TOKEN not set — relay requests will be rejected by the API")
+    logger.warning(
+        "PROXY_AUTH_TOKEN not set — relay requests will be rejected by the API"
+    )
 if not TURNSTILE_SITE_KEY:
     logger.warning("TURNSTILE_SITE_KEY not set — Turnstile widget will not render")
 
@@ -40,6 +42,7 @@ if not TURNSTILE_SITE_KEY:
 # ============================================================================
 # Relay Function
 # ============================================================================
+
 
 async def _relay_search(
     city: str,
@@ -95,8 +98,11 @@ def sync_relay_search(
         loop = None
     if loop and loop.is_running():
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor() as pool:
-            return pool.submit(asyncio.run, _relay_search(city, preferences, topic, turnstile_token)).result()
+            return pool.submit(
+                asyncio.run, _relay_search(city, preferences, topic, turnstile_token)
+            ).result()
     return asyncio.run(_relay_search(city, preferences, topic, turnstile_token))
 
 
@@ -126,7 +132,7 @@ custom_css = """
 # Build the Gradio interface
 with gr.Blocks(
     title="AI Places Search",
-    head=f"""
+    head="""
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <script>
     function onTurnstileSuccess(token) {{
@@ -148,7 +154,6 @@ with gr.Blocks(
     </script>
     """,
 ) as demo:
-
     gr.Markdown("""
     # MapMe Search
 
@@ -196,7 +201,6 @@ with gr.Blocks(
             )
 
             search_btn = gr.Button("Search Places", variant="primary", size="lg")
-
 
     gr.Markdown("---")
     output = gr.Markdown(

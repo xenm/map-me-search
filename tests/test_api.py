@@ -7,7 +7,6 @@ and the /health endpoint without requiring external services.
 
 import os
 import sys
-import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -17,7 +16,7 @@ os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
 os.environ.setdefault("GOOGLE_API_KEY", "fake-key-for-test")
 
 from fastapi.testclient import TestClient
-from agent.agent_api import app, _verify_proxy_auth, _verify_turnstile
+from agent.agent_api import app
 
 
 client = TestClient(app, raise_server_exceptions=False)
@@ -26,6 +25,7 @@ client = TestClient(app, raise_server_exceptions=False)
 # ============================================================================
 # /health
 # ============================================================================
+
 
 class TestHealthEndpoint:
     def test_health_returns_ok(self):
@@ -37,6 +37,7 @@ class TestHealthEndpoint:
 # ============================================================================
 # X-Proxy-Auth verification
 # ============================================================================
+
 
 class TestProxyAuth:
     def test_missing_header_returns_403(self):
@@ -82,6 +83,7 @@ class TestProxyAuth:
 # ============================================================================
 # Request validation
 # ============================================================================
+
 
 class TestRequestValidation:
     def test_missing_city_returns_422(self):

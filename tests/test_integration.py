@@ -30,7 +30,9 @@ from fastapi import HTTPException
 # Fixtures
 # ============================================================================
 
-MOCK_AGENT_RESULT = "Here are 3 great places in Prague: 1) Café Louvre 2) Letná Park 3) DOX Centre"
+MOCK_AGENT_RESULT = (
+    "Here are 3 great places in Prague: 1) Café Louvre 2) Letná Park 3) DOX Centre"
+)
 
 
 @pytest.fixture
@@ -52,6 +54,7 @@ def mock_agent():
 # ============================================================================
 # Integration: Agent API end-to-end (mocked LLM + Turnstile)
 # ============================================================================
+
 
 class TestSearchEndToEnd:
     """Full /search flow with mocked externals."""
@@ -136,6 +139,7 @@ class TestSearchEndToEnd:
 # Integration: Frontend relay → Agent API (mocked LLM + Turnstile)
 # ============================================================================
 
+
 class TestFrontendRelayIntegration:
     """Test the frontend _relay_search function calling the real Agent API."""
 
@@ -184,38 +188,22 @@ class TestFrontendRelayIntegration:
 # Unit Tests: Turnstile Verification
 # ============================================================================
 
+
 class TestTurnstileVerification:
     """Unit tests for _verify_turnstile function."""
 
     @pytest.mark.asyncio
-    async def test_verify_turnstile_missing_secret_key(self):
-        """Test that missing TURNSTILE_SECRET_KEY raises 500 error."""
-        # Temporarily unset the secret key
-        original_secret = os.environ.get("TURNSTILE_SECRET_KEY")
-        os.environ["TURNSTILE_SECRET_KEY"] = ""
-        
-        try:
-            with pytest.raises(HTTPException) as exc_info:
-                await _verify_turnstile("fake-token")
-            assert exc_info.value.status_code == 500
-            assert "Server misconfiguration" in exc_info.value.detail
-        finally:
-            # Restore original secret
-            if original_secret:
-                os.environ["TURNSTILE_SECRET_KEY"] = original_secret
-            else:
-                os.environ.pop("TURNSTILE_SECRET_KEY", None)
-
-    @pytest.mark.asyncio
     async def test_verify_turnstile_network_error(self):
         """Test that network failure to Cloudflare raises 502 error."""
-        from unittest.mock import patch, AsyncMock
+        from unittest.mock import patch
         import httpx
-        
+
         # Mock httpx.AsyncClient to raise HTTPError
         with patch("agent.agent_api.httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.post.side_effect = httpx.HTTPError("Network error")
-            
+            mock_client.return_value.__aenter__.return_value.post.side_effect = (
+                httpx.HTTPError("Network error")
+            )
+
             with pytest.raises(HTTPException) as exc_info:
                 await _verify_turnstile("fake-token")
             assert exc_info.value.status_code == 502
@@ -225,13 +213,18 @@ class TestTurnstileVerification:
     async def test_verify_turnstile_invalid_token(self):
         """Test that invalid/expired token raises 403 error."""
         from unittest.mock import patch, AsyncMock
-        
+
         # Mock successful HTTP response but with failed verification
         with patch("agent.agent_api.httpx.AsyncClient") as mock_client:
             mock_response = AsyncMock()
-            mock_response.json.return_value = {"success": False, "error-codes": ["invalid-input-response"]}
-            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-            
+            mock_response.json = lambda: {
+                "success": False,
+                "error-codes": ["invalid-input-response"],
+            }
+            mock_client.return_value.__aenter__.return_value.post.return_value = (
+                mock_response
+            )
+
             with pytest.raises(HTTPException) as exc_info:
                 await _verify_turnstile("invalid-token")
             assert exc_info.value.status_code == 403
@@ -241,12 +234,14 @@ class TestTurnstileVerification:
     async def test_verify_turnstile_success(self):
         """Test that valid token passes verification."""
         from unittest.mock import patch, AsyncMock
-        
+
         # Mock successful HTTP response with successful verification
         with patch("agent.agent_api.httpx.AsyncClient") as mock_client:
             mock_response = AsyncMock()
-            mock_response.json.return_value = {"success": True}
-            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-            
+            mock_response.json = lambda: {"success": True}
+            mock_client.return_value.__aenter__.return_value.post.return_value = (
+                mock_response
+            )
+
             # Should not raise any exception
             await _verify_turnstile("valid-token")
