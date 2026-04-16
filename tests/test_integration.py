@@ -192,6 +192,48 @@ class TestFrontendRelayIntegration:
 class TestTurnstileVerification:
     """Unit tests for _verify_turnstile function."""
 
+    def test_turnstile_javascript_syntax(self):
+        """Validate that the Turnstile JavaScript in the Gradio head is syntactically correct."""
+        import re
+        from pathlib import Path
+
+        # Read the source file directly
+        hf_app_path = Path(__file__).parent.parent / "frontend" / "hf_app.py"
+        source_code = hf_app_path.read_text()
+
+        # Find the gr.Blocks head parameter
+        # Match: head=f""" or head="""
+        head_pattern = r'head=(f?)"""'
+        match = re.search(head_pattern, source_code)
+
+        assert match is not None, "Could not find head parameter in gr.Blocks"
+        has_f_string = match.group(1) == "f"
+
+        # The head parameter must be an f-string to properly escape {{ and }}
+        assert has_f_string, (
+            "The head parameter in gr.Blocks must be an f-string (head=f\"\"\") "
+            "to properly escape JavaScript braces. Without the 'f' prefix, "
+            "{{ and }} remain as double braces in the output, causing JavaScript syntax errors."
+        )
+
+        # Extract the content between head=..."""
+        head_content_pattern = r'head=f"""(.*?)"""'
+        head_match = re.search(head_content_pattern, source_code, re.DOTALL)
+        assert head_match is not None, "Could not extract head content"
+
+        head_content = head_match.group(1)
+
+        # Verify that the JavaScript uses double braces for escaping
+        # In f-strings, {{ becomes { and }} becomes } in the output
+        assert "{{" in head_content, (
+            "JavaScript in head should use {{ and }} for f-string escaping"
+        )
+
+        # Check for common JavaScript patterns to ensure it's not empty
+        assert "function" in head_content or "addEventListener" in head_content, (
+            "JavaScript in head appears to be missing expected code"
+        )
+
     @pytest.mark.asyncio
     async def test_verify_turnstile_network_error(self):
         """Test that network failure to Cloudflare raises 502 error."""

@@ -152,7 +152,7 @@ with gr.Blocks(
         }}
     }}
     </script>
-    """,
+    """,  # noqa: F541
 ) as demo:
     gr.Markdown("""
     # MapMe Search
