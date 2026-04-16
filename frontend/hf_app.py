@@ -88,10 +88,10 @@ def sync_relay_search(
     city: str,
     preferences: str,
     topic: str,
-    turnstile_token: str,
+    token: str,
 ) -> str:
     """Synchronous wrapper for the async relay function."""
-    logger.debug("relay called: city=%s, token_present=%s", city, bool(turnstile_token))
+    logger.debug("relay called: city=%s, token_present=%s", city, bool(token))
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
@@ -101,9 +101,9 @@ def sync_relay_search(
 
         with concurrent.futures.ThreadPoolExecutor() as pool:
             return pool.submit(
-                asyncio.run, _relay_search(city, preferences, topic, turnstile_token)
+                asyncio.run, _relay_search(city, preferences, topic, token)
             ).result()
-    return asyncio.run(_relay_search(city, preferences, topic, turnstile_token))
+    return asyncio.run(_relay_search(city, preferences, topic, token))
 
 
 # ============================================================================

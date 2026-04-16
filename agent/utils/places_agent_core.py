@@ -41,16 +41,13 @@ def retrieve_user_preferences(tool_context: ToolContext) -> Dict[str, Any]:
     }
 
 
-def _is_transient_model_error(exc: BaseException) -> bool:
+def is_transient_model_error(exc: BaseException) -> bool:
     if genai_errors is not None and isinstance(
         exc, getattr(genai_errors, "ServerError", ())
     ):
-        try:
-            status_code = getattr(exc, "status_code", None)
-            if status_code == 503:
-                return True
-        except Exception:
-            pass
+        status_code = getattr(exc, "status_code", None)
+        if status_code == 503:
+            return True
 
     msg = str(exc).lower()
     if "503" in msg and ("overloaded" in msg or "unavailable" in msg):
@@ -62,14 +59,14 @@ def _is_transient_model_error(exc: BaseException) -> bool:
     return False
 
 
-def _is_quota_exhausted_error(exc: BaseException) -> bool:
+def is_quota_exhausted_error(exc: BaseException) -> bool:
     msg = str(exc).lower()
     if "429" in msg and ("resource_exhausted" in msg or "quota" in msg):
         return True
     return False
 
 
-def _get_model_candidates() -> list[str]:
+def get_model_candidates() -> list[str]:
     primary = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash").strip()
     fallback = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash-lite").strip()
     candidates = [primary] if primary else ["gemini-2.5-flash"]
@@ -78,7 +75,7 @@ def _get_model_candidates() -> list[str]:
     return candidates
 
 
-async def _run_runner_collect_final_text(
+async def run_runner_collect_final_text(
     runner: Runner,
     user_id: str,
     session_id: str,
@@ -108,9 +105,9 @@ async def _run_runner_collect_final_text(
             return final_text
         except Exception as e:
             last_exc = e
-            if _is_quota_exhausted_error(e):
+            if is_quota_exhausted_error(e):
                 raise
-            if not _is_transient_model_error(e) or attempt >= max_attempts:
+            if not is_transient_model_error(e) or attempt >= max_attempts:
                 raise
 
             if on_retry is not None:

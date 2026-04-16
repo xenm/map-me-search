@@ -47,15 +47,15 @@ logger = logging.getLogger(__name__)
 
 
 def _is_transient_model_error(exc: BaseException) -> bool:
-    return places_agent_core._is_transient_model_error(exc)
+    return places_agent_core.is_transient_model_error(exc)
 
 
 def _is_quota_exhausted_error(exc: BaseException) -> bool:
-    return places_agent_core._is_quota_exhausted_error(exc)
+    return places_agent_core.is_quota_exhausted_error(exc)
 
 
 def _get_model_candidates() -> list[str]:
-    return places_agent_core._get_model_candidates()
+    return places_agent_core.get_model_candidates()
 
 
 async def _run_runner_collect_final_text(
@@ -67,12 +67,12 @@ async def _run_runner_collect_final_text(
     initial_delay_s: float,
     backoff_factor: float,
 ) -> str:
-    def _on_retry(attempt: int, max_attempts: int, delay: float) -> None:
+    def _on_retry(attempt: int, total_attempts: int, delay: float) -> None:
         logger.warning(
-            f"Model temporarily unavailable (503). Retrying in {delay:.1f}s... ({attempt}/{max_attempts})"
+            f"Model temporarily unavailable (503). Retrying in {delay:.1f}s... ({attempt}/{total_attempts})"
         )
 
-    return await places_agent_core._run_runner_collect_final_text(
+    return await places_agent_core.run_runner_collect_final_text(
         runner=runner,
         user_id=user_id,
         session_id=session_id,
@@ -175,14 +175,14 @@ def initialize_services(topic: Optional[str] = None):
 
 def create_app(root_agent, plugins=None):
     """Create App with Events Compaction for context optimization."""
-    app = places_agent_core.create_app(
+    agent_app = places_agent_core.create_app(
         root_agent=root_agent,
         plugins=plugins,
         compaction_interval=4,
         overlap_size=1,
     )
     logger.info("App created with EventsCompactionConfig")
-    return app
+    return agent_app
 
 
 # Sanitize strings before logging to prevent log injection
@@ -271,9 +271,9 @@ async def search_places(
                 logger.info(f"Switching model to '{safe_model_name}' and retrying")
 
             agent = initialize_multi_agent_system(model_name=model_name)
-            app = create_app(agent, plugins=[LoggingPlugin()])
+            agent_app = create_app(agent, plugins=[LoggingPlugin()])
             runner = Runner(
-                app=app,
+                app=agent_app,
                 session_service=session_service,
                 memory_service=memory_service,
             )
