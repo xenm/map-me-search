@@ -48,20 +48,20 @@ async def _relay_search(
     city: str,
     preferences: str,
     topic: str,
-    turnstile_token: str,
+    token: str,
 ) -> str:
     """Forward search request server-side to the Cloud Run Agent API."""
     if not city or not preferences:
         return "Please enter both a city name and your preferences."
 
-    if not turnstile_token:
+    if not token:
         return "Please complete the security verification before searching."
 
     payload = {
         "city": city,
         "preferences": preferences,
         "topic": topic.strip() or None,
-        "turnstile_token": turnstile_token,
+        "turnstile_token": token,
     }
     headers = {"X-Proxy-Auth": PROXY_AUTH_TOKEN}
 
