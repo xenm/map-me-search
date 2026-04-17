@@ -151,64 +151,43 @@ def _sanitize_log_str(s):
     return str(s).replace("\r", "").replace("\n", "")
 
 
-async def search_places(
-    city_name: str,
-    preferences: str,
-    topic: Optional[str] = None,
-    user_id: str = "default_user",
+def _build_dummy_llm_response(
+    city_name: str, preferences: str, past_preferences: str
 ) -> str:
-    """
-    Search for nearby places based on city and preferences.
-
-    Args:
-        city_name: The name of the city to search in
-        preferences: What the user likes
-        topic: Optional topic for session persistence. If None, uses transient session.
-        user_id: User identifier for session management
-
-    Returns:
-        String with formatted recommendations
-    """
-    city_name_clean = _sanitize_log_str(city_name)
-    preferences_clean = _sanitize_log_str(preferences)
-    topic_clean = _sanitize_log_str(topic) if topic is not None else "transient"
-    logger.info(
-        f"Searching in {city_name_clean} for '{preferences_clean}' (topic: {topic_clean})"
+    """Dev stub — canned response that echoes inputs AND any past preferences
+    injected from the topic_preferences store. Lets integration tests verify the
+    DB → prompt → response flow without spending real Gemini credits."""
+    context_block = (
+        f"\n\n**Past preferences injected into the prompt:**\n{past_preferences}\n"
+        if past_preferences
+        else "\n\n*No past preferences on file for this topic.*\n"
+    )
+    return (
+        f"## Dev Stub Results for {city_name}\n\n"
+        f"**Preferences:** {preferences}"
+        f"{context_block}\n"
+        "1. **The Golden Cafe** — Cozy spot with great espresso and pastries.\n"
+        "2. **Riverside Park** — Beautiful walking trails along the river.\n"
+        "3. **The Art Quarter** — Street art, galleries, and independent boutiques.\n\n"
+        "*This is a dev stub response. Set a real `GOOGLE_API_KEY` in "
+        "`agent/.env` for live results.*"
     )
 
-    # Dev stub — return canned response without calling LLM
-    if os.environ.get("GOOGLE_API_KEY") == _DEV_DUMMY_KEY:
-        await asyncio.sleep(5)
-        return (
-            f"## Dev Stub Results for {city_name}\n\n"
-            f"**Preferences:** {preferences}\n\n"
-            "1. **The Golden Cafe** — Cozy spot with great espresso and pastries. "
-            "Perfect for a relaxed morning.\n"
-            "2. **Riverside Park** — Beautiful walking trails along the river. "
-            "Great for outdoor activities.\n"
-            "3. **The Art Quarter** — Vibrant neighborhood with street art, "
-            "galleries, and independent boutiques.\n\n"
-            "*This is a dev stub response. Set a real `GOOGLE_API_KEY` in "
-            "`agent/.env` for live results.*"
-        )
 
-    # Retrieve persisted preferences for this topic (empty string if anonymous/new)
-    past_preferences = ""
-    if topic:
-        try:
-            past_preferences = await topic_preferences.get_preferences(topic)
-        except Exception as e:
-            logger.warning(f"Failed to load past preferences: {e}")
+async def _invoke_llm_pipeline(
+    prompt: str,
+    user_id: str,
+    model_candidates: list[str],
+) -> str:
+    """Run the real multi-agent Gemini pipeline against *prompt*.
 
-    # Initialize in-memory services (topic persistence handled by topic_preferences)
+    Centralised so the dev-stub short-circuit in `search_places` replaces only
+    this call, leaving the surrounding DB read/write flow intact for local
+    testing without real API credits.
+    """
     session_service, memory_service = places_agent_core.initialize_services()
-
-    # Unique session ID per request (always in-memory)
     session_id = places_agent_core.generate_session_id()
 
-    model_candidates = _get_model_candidates()
-
-    # Create or retrieve session
     app_name = "PlacesSearchApp"
     session, _created_new = await places_agent_core.create_or_retrieve_session(
         session_service=session_service,
@@ -217,9 +196,6 @@ async def search_places(
         session_id=session_id,
     )
 
-    # Build prompt — inject past preferences as taste context when available
-    prompt = _build_search_prompt(city_name, preferences, past_preferences)
-
     query_content = types.Content(role="user", parts=[types.Part(text=prompt)])
 
     final_text = ""
@@ -227,11 +203,7 @@ async def search_places(
     for idx, model_name in enumerate(model_candidates, start=1):
         try:
             if idx > 1:
-                safe_model_name = (
-                    model_name.replace("\r", "").replace("\n", "")
-                    if isinstance(model_name, str)
-                    else str(model_name).replace("\r", "").replace("\n", "")
-                )
+                safe_model_name = _sanitize_log_str(model_name)
                 logger.info(f"Switching model to '{safe_model_name}' and retrying")
 
             agent = initialize_multi_agent_system(model_name=model_name)
@@ -271,7 +243,62 @@ async def search_places(
             "Please try again later, or configure GEMINI_MODEL / GEMINI_FALLBACK_MODEL."
         )
 
-    # Persist new preference bullet for this topic
+    return final_text
+
+
+async def search_places(
+    city_name: str,
+    preferences: str,
+    topic: Optional[str] = None,
+    user_id: str = "default_user",
+) -> str:
+    """
+    Search for nearby places based on city and preferences.
+
+    Flow:
+      1. If `topic` is set → read accumulated preferences from Postgres.
+         On DB failure, log the error and continue with empty history.
+      2. Build the prompt (injecting past preferences when present).
+      3. Call the LLM pipeline — mocked when the dev dummy key is configured.
+      4. If `topic` is set → append the new preference to Postgres.
+         On DB failure, log the error; the user still gets their results.
+
+    When `topic` is None, the database is never touched.
+    """
+    city_name_clean = _sanitize_log_str(city_name)
+    preferences_clean = _sanitize_log_str(preferences)
+    topic_clean = _sanitize_log_str(topic) if topic is not None else "transient"
+    logger.info(
+        f"Searching in {city_name_clean} for '{preferences_clean}' (topic: {topic_clean})"
+    )
+
+    # 1) Retrieve persisted preferences for this topic (empty when anonymous/new/DB-down)
+    past_preferences = ""
+    if topic:
+        try:
+            past_preferences = await topic_preferences.get_preferences(topic)
+        except Exception:
+            logger.exception(
+                f"Failed to load past preferences for topic '{topic_clean}'; "
+                "continuing with empty context"
+            )
+
+    # 2) Build prompt — past preferences are injected as taste context when available
+    prompt = _build_search_prompt(city_name, preferences, past_preferences)
+
+    # 3) LLM call — mocked when the dev dummy key is set, so the DB flow is still exercised
+    model_candidates = _get_model_candidates()
+    if os.environ.get("GOOGLE_API_KEY") == _DEV_DUMMY_KEY:
+        await asyncio.sleep(0.1)
+        final_text = _build_dummy_llm_response(city_name, preferences, past_preferences)
+    else:
+        final_text = await _invoke_llm_pipeline(
+            prompt=prompt,
+            user_id=user_id,
+            model_candidates=model_candidates,
+        )
+
+    # 4) Persist new preference bullet for this topic
     if topic and final_text:
         try:
             await topic_preferences.append_and_maybe_summarize(
@@ -279,8 +306,8 @@ async def search_places(
                 new_preference=preferences,
                 model_name=model_candidates[0],
             )
-        except Exception as e:
-            logger.warning(f"Failed to persist preferences: {e}")
+        except Exception:
+            logger.exception(f"Failed to persist preferences for topic '{topic_clean}'")
 
     return final_text
 

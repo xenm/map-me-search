@@ -5,17 +5,29 @@ Run both components locally with the fewest possible steps.
 ## Requirements
 
 - Python 3.14+
-- Gemini API key (get one from [Google AI Studio](https://aistudio.google.com/app/apikey))
+- Docker (for the required local PostgreSQL container)
+- Gemini API key (get one from [Google AI Studio](https://aistudio.google.com/app/apikey)) — **optional for local dev**; keep the default `test-api-key-returns-dummy-response` to use the built-in dummy LLM stub that still exercises the full DB → prompt → persistence flow
 
-## 1) Agent API
+## 1) Start PostgreSQL (required)
+
+The app no longer ships an in-memory / SQLite fallback — every run reads and writes `topic_preferences` in Postgres.
+
+```bash
+docker compose up -d postgres
+```
+
+This brings up `postgres:16-alpine` on `localhost:5432` (user/password/db all `mapme`). Tear it down with `docker compose down` (add `-v` to wipe the volume).
+
+## 2) Agent API
 
 ```bash
 # Install dependencies
 pip install -r agent/requirements.txt
 
-# Create .env from template, then add your Gemini API key
+# Create .env from template (includes a ready-to-use DATABASE_URL pointing at
+# the docker compose container, and a dummy Gemini key for offline dev)
 cp agent/.env.example agent/.env
-# Edit agent/.env → set GOOGLE_API_KEY=your_key
+# Optional: edit agent/.env → set GOOGLE_API_KEY=your_real_key for live results
 
 # Start the API server
 uvicorn agent.agent_api:app --port 8080
@@ -27,7 +39,7 @@ The API is now running at `http://localhost:8080`. Verify with:
 curl http://localhost:8080/health
 ```
 
-## 2) Frontend
+## 3) Frontend
 
 In a second terminal:
 

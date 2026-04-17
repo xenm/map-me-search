@@ -3,15 +3,19 @@ Integration tests — Frontend relay → Agent API with mocked externals.
 
 Mocks:
   - Cloudflare Turnstile verification (always passes)
-  - Gemini LLM responses (returns canned text)
+  - Gemini LLM responses (returns canned text via the built-in dev dummy key)
 
 Tests the full request path:
   Frontend _relay_search → HTTP POST /search → proxy auth → turnstile verify → agent pipeline → response
+
+The topic-persistence tests run against a real postgres:16-alpine container
+spun up via testcontainers (shared across the session — see ``conftest.py``).
 """
 
 import os
 import sys
 import pytest
+import pytest_asyncio
 from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -22,7 +26,13 @@ os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
 os.environ.setdefault("GOOGLE_API_KEY", "fake-key-for-test")
 
 from httpx import ASGITransport, AsyncClient
-from agent.agent_api import app, _verify_turnstile
+from agent.agent_api import app, _verify_turnstile, _DEV_DUMMY_KEY, search_places
+from agent.utils import topic_preferences as topic_prefs_module
+from agent.utils.topic_preferences import (
+    _init_with_url,
+    _reset_for_testing,
+    get_preferences,
+)
 from fastapi import HTTPException
 
 
@@ -327,3 +337,187 @@ class TestTurnstileVerification:
 
             # Should not raise any exception
             await _verify_turnstile("valid-token")
+
+
+# ============================================================================
+# Integration: Topic preferences — real Postgres + dummy-LLM end-to-end
+# ============================================================================
+#
+# These tests exercise the full ``search_places`` flow (DB read → prompt build →
+# LLM → DB write) against a real postgres:16-alpine container, with the Gemini
+# call replaced by the built-in dev-dummy stub (see
+# ``agent_api._build_dummy_llm_response``). This lets us verify that the
+# preferences history is actually persisted and injected into the LLM prompt on
+# subsequent calls — without burning real API credits.
+
+
+@pytest_asyncio.fixture
+async def pg_db_with_dummy_llm(postgres_asyncpg_url, monkeypatch):
+    """Point topic_preferences at the shared Postgres container, truncate the
+    table, and force the dev-dummy LLM path for the duration of the test."""
+    monkeypatch.setenv("DATABASE_URL", postgres_asyncpg_url)
+    monkeypatch.setenv("GOOGLE_API_KEY", _DEV_DUMMY_KEY)
+
+    await _init_with_url(postgres_asyncpg_url)
+    from sqlalchemy import text
+    from agent.utils.topic_preferences import _engine
+
+    async with _engine.begin() as conn:
+        await conn.execute(text("TRUNCATE TABLE topic_preferences"))
+    yield
+    await _reset_for_testing()
+
+
+class TestTopicHistoryInjectionIntegration:
+    """Verify that past calls on the same topic add the topic's accumulated
+    preference history to the subsequent LLM request."""
+
+    @pytest.mark.asyncio
+    async def test_second_call_includes_first_calls_preferences(
+        self, pg_db_with_dummy_llm
+    ):
+        """First search persists; second search on the same topic must inject
+        the first call's preferences into the LLM prompt."""
+        first = await search_places(
+            city_name="Prague",
+            preferences="rooftop bars",
+            topic="roadtrip",
+        )
+        # First call: no history yet
+        assert "No past preferences on file" in first
+
+        stored = await get_preferences("roadtrip")
+        assert stored == "- rooftop bars"
+
+        second = await search_places(
+            city_name="Vienna",
+            preferences="opera houses",
+            topic="roadtrip",
+        )
+        # Second call: the dummy LLM response echoes the injected past prefs
+        assert "Past preferences injected into the prompt" in second
+        assert "- rooftop bars" in second
+
+        # And the new preference was appended
+        stored_after = await get_preferences("roadtrip")
+        assert stored_after == "- rooftop bars\n- opera houses"
+
+    @pytest.mark.asyncio
+    async def test_third_call_accumulates_history(self, pg_db_with_dummy_llm):
+        await search_places(city_name="A", preferences="p1", topic="acc")
+        await search_places(city_name="B", preferences="p2", topic="acc")
+        third = await search_places(city_name="C", preferences="p3", topic="acc")
+
+        assert "- p1" in third
+        assert "- p2" in third
+        # p3 is the *new* preference — it is persisted AFTER the LLM call,
+        # so it must NOT appear in the injected past-preferences context. The
+        # stub wraps the header in `**...**` markdown emphasis.
+        assert "Past preferences injected into the prompt:**\n- p1\n- p2" in third
+
+        final_stored = await get_preferences("acc")
+        assert final_stored == "- p1\n- p2\n- p3"
+
+    @pytest.mark.asyncio
+    async def test_different_topics_are_isolated(self, pg_db_with_dummy_llm):
+        await search_places(city_name="Oslo", preferences="fjords", topic="nordic")
+        madrid = await search_places(
+            city_name="Madrid", preferences="tapas", topic="iberia"
+        )
+        # Madrid's context must not contain Oslo's preferences
+        assert "fjords" not in madrid
+        assert "No past preferences on file" in madrid
+
+    @pytest.mark.asyncio
+    async def test_no_topic_skips_database_entirely(
+        self, pg_db_with_dummy_llm, monkeypatch
+    ):
+        """With ``topic=None`` the code must never touch the DB, even on failure."""
+        get_called = False
+        append_called = False
+
+        real_get = topic_prefs_module.get_preferences
+        real_append = topic_prefs_module.append_and_maybe_summarize
+
+        async def tracking_get(*args, **kwargs):
+            nonlocal get_called
+            get_called = True
+            return await real_get(*args, **kwargs)
+
+        async def tracking_append(*args, **kwargs):
+            nonlocal append_called
+            append_called = True
+            return await real_append(*args, **kwargs)
+
+        monkeypatch.setattr(topic_prefs_module, "get_preferences", tracking_get)
+        monkeypatch.setattr(
+            topic_prefs_module, "append_and_maybe_summarize", tracking_append
+        )
+
+        result = await search_places(
+            city_name="Anywhere", preferences="anything", topic=None
+        )
+        assert result  # still returns a response
+        assert get_called is False
+        assert append_called is False
+
+
+class TestDatabaseFailureFallbackIntegration:
+    """When the database is unreachable, the search must still succeed with
+    empty history and the failure must be logged."""
+
+    @pytest.mark.asyncio
+    async def test_search_succeeds_when_get_preferences_raises(
+        self, pg_db_with_dummy_llm, monkeypatch, caplog
+    ):
+        async def boom(topic):
+            raise ConnectionError("simulated database outage")
+
+        monkeypatch.setattr(topic_prefs_module, "get_preferences", boom)
+
+        import logging
+
+        with caplog.at_level(logging.ERROR, logger="agent.agent_api"):
+            result = await search_places(
+                city_name="Lisbon",
+                preferences="pastel de nata",
+                topic="eurotrip",
+            )
+
+        # Search still returns a result — with empty past-preferences context
+        assert result
+        assert "No past preferences on file" in result
+
+        # And the DB failure was logged with a stack trace (logger.exception)
+        error_records = [
+            r for r in caplog.records if r.levelno == logging.ERROR and r.exc_info
+        ]
+        assert any(
+            "Failed to load past preferences" in r.getMessage() for r in error_records
+        ), f"Expected a logged DB failure with traceback; got: {caplog.records!r}"
+
+    @pytest.mark.asyncio
+    async def test_search_succeeds_when_append_raises(
+        self, pg_db_with_dummy_llm, monkeypatch, caplog
+    ):
+        async def boom(**kwargs):
+            raise ConnectionError("simulated database outage on write")
+
+        monkeypatch.setattr(topic_prefs_module, "append_and_maybe_summarize", boom)
+
+        import logging
+
+        with caplog.at_level(logging.ERROR, logger="agent.agent_api"):
+            result = await search_places(
+                city_name="Porto",
+                preferences="port wine",
+                topic="eurotrip",
+            )
+
+        assert result
+        error_records = [
+            r for r in caplog.records if r.levelno == logging.ERROR and r.exc_info
+        ]
+        assert any(
+            "Failed to persist preferences" in r.getMessage() for r in error_records
+        ), f"Expected a logged DB persist failure; got: {caplog.records!r}"

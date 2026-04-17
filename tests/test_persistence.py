@@ -1,11 +1,14 @@
 """
 Tests for topic_preferences — the persistent preference store for named topics.
 
-Unit tests use an in-process SQLite database (no Docker needed).
-Integration tests spin up a postgres:16-alpine container via testcontainers and
-verify the full lifecycle against real PostgreSQL.
+The application no longer supports any in-memory / SQLite fallback, so every
+runtime-behaviour test spins up a postgres:16-alpine container via
+testcontainers and runs against real PostgreSQL.
 
-Requires Docker for integration tests only.
+Unit tests (pure functions) remain DB-free.
+
+Requires Docker for all classes except ``TestBuildDbUrl`` and
+``TestBuildEngineKwargs``.
 """
 
 import os
@@ -33,30 +36,19 @@ from agent.utils.topic_preferences import (
 # Fixtures
 # ============================================================================
 
-_SQLITE_URL = "sqlite+aiosqlite:///:memory:"
-_PG_IMAGE = "postgres:16-alpine"
-
 
 @pytest_asyncio.fixture
-async def sqlite_db():
-    """Fresh in-memory SQLite DB for each unit test."""
-    await _init_with_url(_SQLITE_URL)
+async def pg_db(postgres_asyncpg_url):
+    """Initialise topic_preferences against the shared Postgres container and
+    truncate between tests so each test starts from an empty table."""
+    await _init_with_url(postgres_asyncpg_url)
+    from sqlalchemy import text
+    from agent.utils.topic_preferences import _engine
+
+    async with _engine.begin() as conn:
+        await conn.execute(text("TRUNCATE TABLE topic_preferences"))
     yield
     await _reset_for_testing()
-
-
-@pytest.fixture(scope="module")
-def postgres_asyncpg_url():
-    """Spin up a postgres:16-alpine container and yield an asyncpg-compatible URL."""
-    PostgresContainer = pytest.importorskip(
-        "testcontainers.postgres", reason="testcontainers not installed"
-    ).PostgresContainer
-    with PostgresContainer(_PG_IMAGE) as pg:
-        url = pg.get_connection_url()
-        asyncpg_url = url.replace(
-            "postgresql+psycopg2://", "postgresql+asyncpg://", 1
-        ).replace("postgresql://", "postgresql+asyncpg://", 1)
-        yield asyncpg_url
 
 
 # ============================================================================
@@ -65,10 +57,16 @@ def postgres_asyncpg_url():
 
 
 class TestBuildDbUrl:
-    def test_falls_back_to_sqlite_when_no_env(self, monkeypatch):
+    def test_raises_when_no_env(self, monkeypatch):
+        """SQLite fallback has been removed — DATABASE_URL is now mandatory."""
         monkeypatch.delenv("DATABASE_URL", raising=False)
-        url = _build_db_url()
-        assert url.startswith("sqlite+aiosqlite://")
+        with pytest.raises(RuntimeError, match="DATABASE_URL is not set"):
+            _build_db_url()
+
+    def test_raises_when_empty(self, monkeypatch):
+        monkeypatch.setenv("DATABASE_URL", "   ")
+        with pytest.raises(RuntimeError, match="DATABASE_URL is not set"):
+            _build_db_url()
 
     def test_returns_database_url_when_set(self, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://user:pass@host/db")
@@ -77,7 +75,8 @@ class TestBuildDbUrl:
 
 
 class TestBuildEngineKwargs:
-    def test_sqlite_returns_empty(self):
+    def test_non_postgresql_returns_empty(self):
+        """Non-postgres URLs (only used by the _init_with_url test helper) skip SSL."""
         assert _build_engine_kwargs("sqlite+aiosqlite:///test.db") == {}
 
     def test_postgresql_tcp_requires_ssl(self):
@@ -95,45 +94,37 @@ class TestBuildEngineKwargs:
 
 
 # ============================================================================
-# Unit tests — get_preferences and append_and_maybe_summarize (SQLite)
+# Integration tests — real PostgreSQL container (testcontainers)
 # ============================================================================
 
 
-class TestGetPreferences:
-    @pytest.mark.asyncio
-    async def test_returns_empty_string_for_unknown_topic(self, sqlite_db):
-        result = await get_preferences("nonexistent-topic")
-        assert result == ""
+class TestTopicPreferencesIntegration:
+    """Full lifecycle tests against a real postgres:16-alpine container."""
 
     @pytest.mark.asyncio
-    async def test_returns_stored_preferences(self, sqlite_db):
-        with patch(
-            "agent.utils.topic_preferences._summarize", new_callable=AsyncMock
-        ) as mock_summarize:
-            mock_summarize.return_value = "- mocked summary"
-            await append_and_maybe_summarize(
-                "food-2024", "sushi restaurants", "gemini-test"
-            )
-        result = await get_preferences("food-2024")
-        assert "sushi restaurants" in result
+    async def test_returns_empty_string_for_unknown_topic(self, pg_db):
+        assert await get_preferences("nonexistent-topic") == ""
 
-
-class TestAppendPreferences:
     @pytest.mark.asyncio
-    async def test_first_append_creates_bullet(self, sqlite_db):
+    async def test_returns_stored_preferences(self, pg_db):
+        await append_and_maybe_summarize(
+            "food-2024", "sushi restaurants", "gemini-test"
+        )
+        assert "sushi restaurants" in await get_preferences("food-2024")
+
+    @pytest.mark.asyncio
+    async def test_first_append_creates_bullet(self, pg_db):
         await append_and_maybe_summarize("trip-a", "coffee shops", "gemini-test")
-        prefs = await get_preferences("trip-a")
-        assert prefs == "- coffee shops"
+        assert await get_preferences("trip-a") == "- coffee shops"
 
     @pytest.mark.asyncio
-    async def test_second_append_adds_bullet(self, sqlite_db):
+    async def test_second_append_adds_bullet(self, pg_db):
         await append_and_maybe_summarize("trip-b", "museums", "gemini-test")
         await append_and_maybe_summarize("trip-b", "parks", "gemini-test")
-        prefs = await get_preferences("trip-b")
-        assert prefs == "- museums\n- parks"
+        assert await get_preferences("trip-b") == "- museums\n- parks"
 
     @pytest.mark.asyncio
-    async def test_version_increments(self, sqlite_db):
+    async def test_version_increments(self, pg_db):
         from sqlalchemy import select
         from agent.utils.topic_preferences import _session_factory, TopicPreference
 
@@ -149,7 +140,7 @@ class TestAppendPreferences:
         assert row.version == 3
 
     @pytest.mark.asyncio
-    async def test_summarize_called_at_version_10(self, sqlite_db):
+    async def test_summarize_called_at_version_10(self, pg_db):
         with patch(
             "agent.utils.topic_preferences._summarize", new_callable=AsyncMock
         ) as mock_summarize:
@@ -159,11 +150,10 @@ class TestAppendPreferences:
                     "trip-d", f"preference {i}", "gemini-test"
                 )
             mock_summarize.assert_called_once()
-        prefs = await get_preferences("trip-d")
-        assert prefs == "- condensed preferences"
+        assert await get_preferences("trip-d") == "- condensed preferences"
 
     @pytest.mark.asyncio
-    async def test_summarize_not_called_before_version_10(self, sqlite_db):
+    async def test_summarize_not_called_before_version_10(self, pg_db):
         with patch(
             "agent.utils.topic_preferences._summarize", new_callable=AsyncMock
         ) as mock_summarize:
@@ -174,48 +164,19 @@ class TestAppendPreferences:
             mock_summarize.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_topics_are_isolated(self, sqlite_db):
+    async def test_topics_are_isolated(self, pg_db):
         await append_and_maybe_summarize("iso-x", "hiking", "gemini-test")
         await append_and_maybe_summarize("iso-y", "beaches", "gemini-test")
         assert "hiking" in await get_preferences("iso-x")
         assert "beaches" in await get_preferences("iso-y")
         assert "beaches" not in await get_preferences("iso-x")
 
-
-# ============================================================================
-# Integration tests — real PostgreSQL container
-# ============================================================================
-
-
-class TestTopicPreferencesIntegration:
-    """Full lifecycle tests against a real postgres:16-alpine container."""
-
-    @pytest_asyncio.fixture(autouse=True)
-    async def pg_db(self, postgres_asyncpg_url):
-        await _init_with_url(postgres_asyncpg_url)
-        yield
-        await _reset_for_testing()
-
     @pytest.mark.asyncio
     async def test_preference_persists_across_engine_instances(
-        self, postgres_asyncpg_url
+        self, pg_db, postgres_asyncpg_url
     ):
         """Write via one engine, read via a fresh engine — confirms real DB write."""
         await append_and_maybe_summarize("persist-test", "rooftop bars", "gemini-test")
         await _reset_for_testing()
         await _init_with_url(postgres_asyncpg_url)
-        result = await get_preferences("persist-test")
-        assert "rooftop bars" in result
-
-    @pytest.mark.asyncio
-    async def test_summarization_at_version_10(self, postgres_asyncpg_url):
-        with patch(
-            "agent.utils.topic_preferences._summarize", new_callable=AsyncMock
-        ) as mock_summarize:
-            mock_summarize.return_value = "- summarized on postgres"
-            for i in range(10):
-                await append_and_maybe_summarize(
-                    "pg-summarize", f"pref {i}", "gemini-test"
-                )
-            mock_summarize.assert_called_once()
-        assert await get_preferences("pg-summarize") == "- summarized on postgres"
+        assert "rooftop bars" in await get_preferences("persist-test")

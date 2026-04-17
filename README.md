@@ -87,7 +87,7 @@ All session state is in-memory for the duration of a single request. The only th
 
 The table has three columns: `topic` (PK), `preferences` (accumulated bullet points), `version` (integer, incremented per update).
 
-In local development, if `DATABASE_URL` is not set, the code falls back to a local SQLite file (`sqlite+aiosqlite:///topic_preferences.db`).
+`DATABASE_URL` is **required** — there is no SQLite / in-memory fallback. For local development a `docker-compose.yml` at the repo root brings up a `postgres:16-alpine` container that matches the default `DATABASE_URL` shipped in `agent/.env.example`. If the database is unreachable at request time, the search still returns a response with empty past-preferences context and the failure is logged via `logger.exception`.
 
 > PostgreSQL over TCP automatically gets `ssl=require` injected. Cloud SQL Auth Proxy (Unix socket) is detected by URL pattern and skips SSL — it's already secured at the socket level.
 
@@ -175,7 +175,7 @@ Open `http://localhost:7860`.
 | Frontend | Gradio |
 | Language | Python 3.14 |
 | Container | Docker (`python:3.14-slim`, non-root) |
-| Session DB | PostgreSQL via `asyncpg` / SQLite for local dev |
+| Preferences DB | PostgreSQL via `asyncpg` (Docker locally, Cloud SQL in prod) |
 | CI/CD | GitHub Actions (SHA-pinned, WIF auth) |
 | Secrets | Google Secret Manager |
 | Registry | Artifact Registry (immutable tags, vulnerability scanning) |

@@ -65,19 +65,36 @@ def _get_session_factory() -> sessionmaker:
 
 
 def _build_db_url() -> str:
-    url = os.environ.get("DATABASE_URL", "")
-    return url if url else "sqlite+aiosqlite:///topic_preferences.db"
+    """Return the PostgreSQL connection string from ``DATABASE_URL``.
+
+    Raises:
+        RuntimeError: when ``DATABASE_URL`` is not set. There is no SQLite /
+            in-memory fallback — the app requires PostgreSQL (local Docker
+            container for dev, Cloud SQL in production).
+    """
+    url = os.environ.get("DATABASE_URL", "").strip()
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL is not set. Start the local Postgres container "
+            "(`docker compose up -d postgres`) and set DATABASE_URL in "
+            "agent/.env — see agent/.env.example."
+        )
+    return url
 
 
 def _build_engine_kwargs(db_url: str) -> dict:
     """Return extra SQLAlchemy engine kwargs.
 
-    PostgreSQL over TCP requires SSL. Cloud SQL Auth Proxy (Unix socket) does not.
+    PostgreSQL over TCP requires SSL for production (Cloud SQL, etc).
+    Unix sockets (Cloud SQL Auth Proxy) and localhost Docker do not.
+    Non-postgresql URLs are only used by the ``_init_with_url`` test helper.
     """
     if not db_url.startswith("postgresql"):
         return {}
     is_unix = "host=/cloudsql/" in db_url or db_url.split("@", 1)[-1].startswith("/")
-    return {} if is_unix else {"connect_args": {"ssl": "require"}}
+    # Skip SSL for localhost Docker connections
+    is_localhost = "localhost" in db_url or "127.0.0.1" in db_url
+    return {} if (is_unix or is_localhost) else {"connect_args": {"ssl": "require"}}
 
 
 async def _ensure_initialized() -> None:
