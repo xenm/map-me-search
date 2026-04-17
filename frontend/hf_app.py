@@ -68,7 +68,7 @@ async def _relay_search(
     headers = {"X-Proxy-Auth": PROXY_AUTH_TOKEN}
 
     try:
-        async with httpx.AsyncClient(timeout=90.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             resp = await client.post(
                 f"{AGENT_API_URL}/search",
                 json=payload,
@@ -638,7 +638,7 @@ with gr.Blocks(
 
             try:
                 result = future.result()
-            except Exception:
+            except (RuntimeError, concurrent.futures.CancelledError):
                 logger.exception("Search execution failed")
                 result = "Could not complete the search. Please try again."
 
@@ -652,6 +652,11 @@ with gr.Blocks(
         fn=_do_search,
         inputs=[city_input, preferences_input, topic_input, turnstile_token],
         outputs=[output, search_btn],
+        show_progress="hidden",
+    ).then(
+        fn=lambda: gr.update(value=""),
+        outputs=[turnstile_token],
+        js="() => { try { if (window.turnstile) { window.turnstile.reset(); } } catch (e) { console.error('[Turnstile] reset failed', e); } return []; }",
         show_progress="hidden",
     )
 

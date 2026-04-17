@@ -234,6 +234,46 @@ class TestTurnstileVerification:
             "JavaScript in head appears to be missing expected code"
         )
 
+    def test_turnstile_reset_after_search(self):
+        """The search click chain must reset Turnstile so each request uses a fresh token.
+
+        Cloudflare Turnstile tokens are single-use; reusing one yields
+        'timeout-or-duplicate' and a 403 from the Agent API. The frontend must
+        call `turnstile.reset()` after every search and clear the hidden token
+        textbox.
+        """
+        from pathlib import Path
+
+        hf_app_path = Path(__file__).parent.parent / "frontend" / "hf_app.py"
+        source_code = hf_app_path.read_text()
+
+        assert "window.turnstile.reset()" in source_code, (
+            "Frontend must call window.turnstile.reset() after a search to "
+            "obtain a fresh Turnstile token for the next request."
+        )
+
+    def test_relay_search_timeout_at_least_180s(self):
+        """The relay HTTP client must allow enough time for the multi-agent pipeline.
+
+        The agent pipeline can take well over 90s end-to-end; a too-low timeout
+        surfaces as 'The search is taking too long' even when the API succeeds.
+        """
+        import re
+        from pathlib import Path
+
+        hf_app_path = Path(__file__).parent.parent / "frontend" / "hf_app.py"
+        source_code = hf_app_path.read_text()
+
+        match = re.search(r"httpx\.AsyncClient\(timeout=(\d+(?:\.\d+)?)\)", source_code)
+        assert match is not None, (
+            "Could not find httpx.AsyncClient(timeout=...) call in frontend/hf_app.py"
+        )
+        timeout_value = float(match.group(1))
+        assert timeout_value >= 180.0, (
+            f"Relay timeout is {timeout_value}s; must be >= 180s to accommodate "
+            "the full agent pipeline latency."
+        )
+
     @pytest.mark.asyncio
     async def test_verify_turnstile_network_error(self):
         """Test that network failure to Cloudflare raises 502 error."""

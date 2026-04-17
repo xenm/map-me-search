@@ -52,6 +52,18 @@ _session_factory: Optional[sessionmaker] = None
 _init_lock = asyncio.Lock()
 
 
+def _get_engine() -> AsyncEngine:
+    if _engine is None:
+        raise RuntimeError("Topic preferences engine is not initialized")
+    return _engine
+
+
+def _get_session_factory() -> sessionmaker:
+    if _session_factory is None:
+        raise RuntimeError("Topic preferences session factory is not initialized")
+    return _session_factory
+
+
 def _build_db_url() -> str:
     url = os.environ.get("DATABASE_URL", "")
     return url if url else "sqlite+aiosqlite:///topic_preferences.db"
@@ -115,7 +127,8 @@ async def _init_with_url(db_url: str) -> None:
 async def get_preferences(topic: str) -> str:
     """Return accumulated bullet-point preferences for *topic*, or "" if none."""
     await _ensure_initialized()
-    async with _session_factory() as session:
+    session_factory = _get_session_factory()
+    async with session_factory() as session:
         result = await session.execute(
             select(TopicPreference).where(TopicPreference.topic == topic)
         )
@@ -140,10 +153,12 @@ async def append_and_maybe_summarize(
 ) -> None:
     """Append *new_preference* as a bullet; summarize every 10th version."""
     await _ensure_initialized()
-    async with _session_factory() as session:
+    session_factory = _get_session_factory()
+    engine = _get_engine()
+    async with session_factory() as session:
         async with session.begin():
             stmt = select(TopicPreference).where(TopicPreference.topic == topic)
-            if _engine.dialect.name == "postgresql":
+            if engine.dialect.name == "postgresql":
                 stmt = stmt.with_for_update()
             result = await session.execute(stmt)
             row = result.scalar_one_or_none()
