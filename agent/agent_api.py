@@ -16,9 +16,8 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent / ".env")  # no-op when absent (Cloud Run)
 from google.adk.runners import Runner  # noqa: E402
 from google.adk.plugins.logging_plugin import LoggingPlugin  # noqa: E402
-from google.adk.tools.tool_context import ToolContext  # noqa: E402
 from google.genai import types  # noqa: E402
-from typing import Any, Dict, Optional  # noqa: E402
+from typing import Optional  # noqa: E402
 import hmac  # noqa: E402
 
 import httpx  # noqa: E402
@@ -27,8 +26,10 @@ from pydantic import BaseModel  # noqa: E402
 
 try:
     from .utils import places_agent_core
+    from .utils import topic_preferences
 except ImportError:
     from utils import places_agent_core
+    from utils import topic_preferences
 
 try:
     from google.genai import errors as genai_errors
@@ -101,28 +102,6 @@ _configure_genai_auth()
 
 
 # ============================================================================
-# Custom Function Tools
-# ============================================================================
-# NOTE: calculate_distance_score and get_place_category_boost are now imported from utils.scoring_tools
-
-
-def save_user_preferences(
-    tool_context: ToolContext, city: str, preferences: str
-) -> Dict[str, Any]:
-    """Save user's city and preferences to session state."""
-    return places_agent_core.save_user_preferences(
-        tool_context=tool_context,
-        city=city,
-        preferences=preferences,
-    )
-
-
-def retrieve_user_preferences(tool_context: ToolContext) -> Dict[str, Any]:
-    """Retrieve user's previously saved preferences from session state."""
-    return places_agent_core.retrieve_user_preferences(tool_context=tool_context)
-
-
-# ============================================================================
 # Agent System Initialization
 # ============================================================================
 
@@ -137,40 +116,20 @@ def initialize_multi_agent_system(model_name: Optional[str] = None):
     return root_agent
 
 
-def initialize_services(topic: Optional[str] = None):
-    """
-    Initialize Session and Memory services based on topic.
-
-    Args:
-        topic: If provided, use DatabaseSessionService for persistence.
-               If None/empty, use InMemorySessionService for transient session.
-
-    Returns:
-        Tuple of (session_service, memory_service)
-    """
-    topic_str = topic if topic is not None else "None (transient)"
-    topic_str = topic_str.replace("\r", "").replace("\n", "")
-    logger.info(f"Initializing services with topic: {topic_str}")
-
-    session_service, memory_service, using_database, db_error = (
-        places_agent_core.initialize_services(topic)
+def _build_search_prompt(city: str, preferences: str, past_preferences: str) -> str:
+    """Build the LLM prompt, injecting past preferences as taste context when available."""
+    base = (
+        f"Find nearby places in {city} for someone who likes: {preferences}. "
+        "Provide specific recommendations with names, brief descriptions, "
+        "and why they would enjoy each place."
     )
-
-    if topic:
-        if using_database:
-            topic_sanitized = topic.replace("\r", "").replace("\n", "")
-            logger.info(
-                f"DatabaseSessionService initialized for topic '{topic_sanitized}'"
-            )
-        else:
-            logger.warning(
-                f"DatabaseSessionService failed: {db_error}, falling back to InMemory"
-            )
-    else:
-        logger.info("InMemorySessionService initialized (transient mode)")
-
-    logger.info("InMemoryMemoryService initialized")
-    return session_service, memory_service
+    if past_preferences:
+        return (
+            f"{base}\n\n"
+            "For additional context, here are the user's accumulated preferences "
+            f"from previous searches on this topic:\n{past_preferences}"
+        )
+    return base
 
 
 def create_app(root_agent, plugins=None):
@@ -233,11 +192,19 @@ async def search_places(
             "`agent/.env` for live results.*"
         )
 
-    # Initialize services
-    session_service, memory_service = initialize_services(topic)
+    # Retrieve persisted preferences for this topic (empty string if anonymous/new)
+    past_preferences = ""
+    if topic:
+        try:
+            past_preferences = await topic_preferences.get_preferences(topic)
+        except Exception as e:
+            logger.warning(f"Failed to load past preferences: {e}")
 
-    # Generate session ID based on topic
-    session_id = places_agent_core.generate_session_id(user_id=user_id, topic=topic)
+    # Initialize in-memory services (topic persistence handled by topic_preferences)
+    session_service, memory_service = places_agent_core.initialize_services()
+
+    # Unique session ID per request (always in-memory)
+    session_id = places_agent_core.generate_session_id()
 
     model_candidates = _get_model_candidates()
 
@@ -250,11 +217,8 @@ async def search_places(
         session_id=session_id,
     )
 
-    # Create prompt
-    prompt = (
-        f"Find nearby places in {city_name} for someone who likes {preferences}. "
-        f"Provide specific recommendations with names, brief descriptions, and why they would enjoy them."
-    )
+    # Build prompt — inject past preferences as taste context when available
+    prompt = _build_search_prompt(city_name, preferences, past_preferences)
 
     query_content = types.Content(role="user", parts=[types.Part(text=prompt)])
 
@@ -307,13 +271,16 @@ async def search_places(
             "Please try again later, or configure GEMINI_MODEL / GEMINI_FALLBACK_MODEL."
         )
 
-    # Save to memory if topic is provided
-    if topic:
+    # Persist new preference bullet for this topic
+    if topic and final_text:
         try:
-            await memory_service.add_session_to_memory(session)
-            logger.info("Session saved to memory")
-        except (ValueError, RuntimeError, ConnectionError) as e:
-            logger.warning(f"Memory save failed: {e}")
+            await topic_preferences.append_and_maybe_summarize(
+                topic=topic,
+                new_preference=preferences,
+                model_name=model_candidates[0],
+            )
+        except Exception as e:
+            logger.warning(f"Failed to persist preferences: {e}")
 
     return final_text
 

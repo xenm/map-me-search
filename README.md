@@ -1,171 +1,207 @@
 # MapMe Search
 
-[![A2AS-CERTIFIED](https://img.shields.io/badge/A2AS-CERTIFIED-f3af80)](https://www.a2as.org/certified/agents/xenm/map-me-search?utm_source=github&utm_medium=pull_request) 
+[![A2AS-CERTIFIED](https://img.shields.io/badge/A2AS-CERTIFIED-f3af80)](https://www.a2as.org/certified/agents/xenm/map-me-search?utm_source=github&utm_medium=pull_request)
+[![CI](https://github.com/xenm/map-me-search/actions/workflows/ci.yaml/badge.svg)](https://github.com/xenm/map-me-search/actions/workflows/ci.yaml)
 
-An intelligent multi-agent system that searches for personalized nearby places using Google's Gemini AI and Agent Development Kit (ADK).
+AI-powered place recommendations using a multi-agent pipeline on Google ADK. You give it a city and your interests; three specialised agents — research, filter, and format — work in sequence to return ranked suggestions.
 
-## Security Architecture (DevSecOps)
-
-This project treats security as a first-class design constraint, not an afterthought. The architecture assumes **public source code** and enforces **zero trust at every boundary**.
-
-```
- Browser
- │  Cloudflare Turnstile challenge (bot/abuse mitigation)
- ▼
-┌──────────────────────┐  X-Proxy-Auth   ┌──────────────────────┐
-│  Hugging Face Space  │ ──────────────▶ │  Google Cloud Run    │
-│  (Thin Trusted Relay)│ ◀────────────── │  (Agent API)         │
-│                      │   JSON result   │                      │
-│  • Gradio UI         │                 │  • FastAPI + Uvicorn │
-│  • No GCP secrets    │                 │  • Multi-agent pipeline│
-│  • No agent logic    │                 │  • Gemini LLM calls  │
-│  • httpx relay only  │                 │  • Secret Manager    │
-└──────────────────────┘                 └──────────────────────┘
-```
-
-### Why this is the most secure architecture
-
-| Principle | Implementation |
-|---|---|
-| **Zero GCP secrets in GitHub** | GitHub stores only non-sensitive identifiers (`vars.*`). Runtime secrets (`PROXY_AUTH_TOKEN`, `TURNSTILE_SECRET_KEY`) live in Google Secret Manager and are injected into Cloud Run at deploy time. |
-| **Workload Identity Federation** | GitHub Actions authenticates to GCP via OIDC federation — no JSON service account keys anywhere. |
-| **Least-privilege service accounts** | `map-me-search-deploy@` can only push images and deploy one service. `map-me-search-run@` can only read its own secrets. Neither has project-wide admin roles. |
-| **Immutable container images** | Docker images are tagged with the Git SHA. Artifact Registry enforces immutable tags, vulnerability scanning, and cleanup policies. |
-| **Non-root container** | The Dockerfile creates and runs as `appuser` — no root process in production. |
-| **Minimal frontend dependencies** | The HF Space installs only `gradio`, `httpx`, and `python-dotenv`. No GCP SDK, no agent code, no AI model access. A compromised Space cannot reach Google APIs. |
-| **App-layer authentication** | Cloud Run is public at the network level (required because the caller is HF, not a Google identity), but every request must pass two checks: a shared secret (`X-Proxy-Auth` verified with constant-time comparison) and a Cloudflare Turnstile token (verified server-side against Cloudflare's API). |
-| **Fail-closed on misconfiguration** | If `PROXY_AUTH_TOKEN` or `TURNSTILE_SECRET_KEY` is missing, the API rejects all requests (HTTP 500), never falls open. |
-| **Deny-by-default GitHub Actions** | Top-level `permissions: {}` in workflows; only the deploy job gets `contents: read` + `id-token: write`. |
-| **SHA-pinned Actions** | All third-party Actions are pinned to commit SHA, not mutable tags. Dependabot monitors for updates. |
-
-### Security model summary
-
-- **Browser ↔ HF Space**: Turnstile widget proves the user is human
-- **HF Space ↔ Cloud Run**: shared secret header proves the caller is the trusted relay
-- **Cloud Run ↔ Cloudflare**: server-side Turnstile verification proves the token is valid, single-use, and not expired
-- **GitHub ↔ GCP**: WIF + OIDC proves the caller is this repo's main branch
-- **Cloud Run ↔ Secret Manager**: runtime SA proves the container is authorized to read secrets
+The engineering challenge worth noting: the source code is fully public, the frontend runs on a third-party platform (Hugging Face), and the backend holds GCP credentials. Building that without any secret ever touching GitHub is the interesting part.
 
 ---
 
-## Quick Start (Local Development)
+## Architecture
 
-See [docs/QUICKSTART.md](docs/QUICKSTART.md) for full setup instructions.
+```mermaid
+flowchart LR
+    B([Browser]) -->|Turnstile token| HF
+    subgraph HF["Hugging Face Space"]
+        UI[Gradio UI\nthin relay only]
+    end
+    HF -->|POST /search\nX-Proxy-Auth header| CR
+    subgraph CR["Google Cloud Run"]
+        API[FastAPI + ADK pipeline]
+        API -->|read secrets| SM[(Secret Manager)]
+        API -->|preferences| DB[(PostgreSQL)]
+        API -->|verify token| CF[Cloudflare\nTurnstile API]
+        API -->|search| GS[Google Search]
+        API -->|LLM| GM[Gemini 2.5 Flash]
+    end
+    CR -->|result JSON| HF
+```
+
+### Agent pipeline
+
+Three agents run sequentially. The output key of each is the input context for the next.
+
+```mermaid
+sequenceDiagram
+    participant R as ResearchAgent
+    participant F as FilterAgent
+    participant C as CalculationAgent
+    participant Fm as FormatterAgent
+
+    R->>R: google_search (5-7 places)
+    R-->>F: research_findings
+    F->>F: calculate_distance_score()
+    F->>F: get_place_category_boost()
+    F->>C: score data
+    C->>C: execute Python scoring code
+    C-->>F: calculation_results
+    F-->>Fm: filtered_results (top 5)
+    Fm-->>Fm: format recommendations
+```
+
+---
+
+## Security
+
+The architecture assumes public source code and treats every boundary as untrusted.
+
+| Boundary | Mechanism |
+|----------|-----------|
+| Browser → HF Space | Cloudflare Turnstile proves the user is human |
+| HF Space → Cloud Run | `X-Proxy-Auth` shared secret, constant-time comparison |
+| Cloud Run → Cloudflare | Server-side Turnstile verification — token is single-use, time-limited |
+| GitHub Actions → GCP | Workload Identity Federation + OIDC — no JSON keys anywhere |
+| Cloud Run → Secret Manager | Runtime service account with `secretAccessor` on its own secrets only |
+
+**Key properties:**
+
+- **Zero GCP secrets in GitHub** — deploy job uses OIDC federation; all runtime secrets live in Secret Manager and are injected at deploy time
+- **Least-privilege service accounts** — `deploy@` can push images and deploy one service; `run@` can read its own secrets; neither has project-wide roles
+- **Immutable container images** — SHA-tagged, Artifact Registry repository has `--immutable-tags` set; once pushed, a tag cannot be overwritten
+- **Non-root container** — `Dockerfile` creates and runs as `appuser`
+- **Minimal frontend blast radius** — HF Space installs only `gradio`, `httpx`, `python-dotenv`; no GCP SDK, no agent code; a compromised Space cannot reach Google APIs
+- **Fail-closed** — missing `PROXY_AUTH_TOKEN` or `TURNSTILE_SECRET_KEY` → HTTP 500, never falls open
+- **Deny-by-default workflows** — top-level `permissions: {}` in all workflows; only the deploy job gets `id-token: write`
+- **SHA-pinned Actions** — all third-party Actions pinned to commit SHA; Dependabot monitors for updates
+
+---
+
+## Topic Preferences Persistence
+
+All session state is in-memory for the duration of a single request. The only thing written to PostgreSQL is accumulated user preferences per named topic.
+
+- **With topic** → before the LLM call, past preferences for that topic are read from `topic_preferences` and injected into the ResearchAgent prompt as taste context. After a successful response, the new preference is appended as a bullet point. Every 10th update triggers an LLM summarisation pass that compresses the list back to ≤ 8 bullets.
+- **Without topic** → fully anonymous; nothing is read from or written to the database.
+
+The table has three columns: `topic` (PK), `preferences` (accumulated bullet points), `version` (integer, incremented per update).
+
+In local development, if `DATABASE_URL` is not set, the code falls back to a local SQLite file (`sqlite+aiosqlite:///topic_preferences.db`).
+
+> PostgreSQL over TCP automatically gets `ssl=require` injected. Cloud SQL Auth Proxy (Unix socket) is detected by URL pattern and skips SSL — it's already secured at the socket level.
+
+---
+
+## CI/CD
+
+```mermaid
+flowchart LR
+    PR[Pull request / push to main] --> CI
+    CI -->|lint + unit + integration tests| Gate{passed?}
+    Gate -->|yes| DA[deploy-agent-api\nCloud Run]
+    Gate -->|yes| DH[deploy-hf-app\nHugging Face]
+    Gate -->|no| ✗[blocked]
+```
+
+| Workflow | Trigger | What it does |
+|----------|---------|--------------|
+| `ci.yaml` | PR + push to main | ruff lint, unit tests, integration tests (testcontainers) |
+| `deploy-agent-api.yaml` | CI passes on main | build Docker image → push to Artifact Registry → deploy to Cloud Run → smoke test `/health` |
+| `deploy-hf-app.yaml` | CI passes on main | push `frontend/` to HF Space via git |
+
+---
+
+## Quick Start
+
+See [docs/QUICKSTART.md](docs/QUICKSTART.md) for full local setup.
 
 ```bash
-# Agent API (terminal 1)
-cp agent/.env.example agent/.env   # edit GCP project + auth
+# Agent API
+cp agent/.env.example agent/.env   # set GOOGLE_API_KEY
 uvicorn agent.agent_api:app --port 8080
 
-# Frontend (terminal 2)
+# Frontend (second terminal)
 cp frontend/.env.example frontend/.env
 python frontend/hf_app.py
 ```
 
-## Architecture
+Open `http://localhost:7860`.
 
-### Deployment
-
-| Component | Runtime | Entry point | Deployment |
-|---|---|---|---|
-| Agent API | Google Cloud Run | `agent/agent_api.py` | `deploy-agent-api.yaml` |
-| Frontend | Hugging Face Spaces | `frontend/hf_app.py` | `deploy-hf-app.yaml` |
-
-### Agent Pipeline
-
-The API runs a **sequential multi-agent pipeline** via Google ADK:
-
-1. **ResearchAgent** — searches for places using Google Search
-2. **FilterAgent** — scores and ranks results using custom tools:
-   - `calculate_distance_score()` — proximity scoring
-   - `get_place_category_boost()` — category matching
-   - `save_user_preferences()` / `retrieve_user_preferences()` — session state
-   - **CalculationAgent** — mathematical scoring via code execution (AgentTool)
-3. **FormatterAgent** — presents user-friendly recommendations
-
-### Infrastructure
-
-- **Session management**: `DatabaseSessionService` (persistent) or `InMemorySessionService` (transient), selected by optional topic field
-- **Memory**: `InMemoryMemoryService` with auto-save callbacks
-- **Context compaction**: `EventsCompactionConfig` (every 4 turns)
-- **Observability**: `LoggingPlugin` for tracing
-- **Model fallback**: Gemini 2.5 Flash → Gemini 2.5 Flash Lite on 503/429
-
-## Tech Stack
-
-- **AI Framework**: Google Agent Development Kit (ADK)
-- **AI Model**: Gemini 2.5 Flash (with automatic fallback)
-- **API**: FastAPI + Uvicorn
-- **Frontend**: Gradio
-- **Language**: Python 3.14
-- **Container**: Docker (python:3.14-slim, non-root)
-- **CI/CD**: GitHub Actions (SHA-pinned, WIF auth)
-- **Secrets**: Google Secret Manager
-- **Registry**: Google Artifact Registry (immutable tags, vulnerability scanning)
-- **Bot protection**: Cloudflare Turnstile
-- **Testing**: pytest
+---
 
 ## Repository Structure
 
 ```
 ├── agent/
-│   ├── agent_api.py          # FastAPI app (Cloud Run entry point)
+│   ├── agent_api.py               # FastAPI app — Cloud Run entry point
 │   ├── requirements.txt
 │   ├── .env.example
-│   ├── __init__.py
 │   └── utils/
-│       ├── places_agent_core.py   # Multi-agent pipeline logic
-│       └── scoring_tools.py       # Distance/category scoring
+│       ├── places_agent_core.py   # Multi-agent pipeline (agents, runner, retry)
+│       ├── topic_preferences.py   # topic_preferences table — read/write/summarise
+│       └── scoring_tools.py       # Distance / category scoring tools
 ├── frontend/
-│   ├── hf_app.py             # Gradio relay app (HF Space entry point)
+│   ├── hf_app.py                  # Gradio relay — HF Space entry point
 │   ├── requirements.txt
-│   ├── .env.example
-│   └── README.md             # HF Space metadata (YAML frontmatter)
+│   └── .env.example
 ├── tests/
-│   └── test_tools.py         # Unit tests for scoring tools
+│   ├── test_api.py                # Security layer unit tests
+│   ├── test_integration.py        # Frontend → API integration tests
+│   ├── test_persistence.py        # topic_preferences CRUD + summarisation (testcontainers)
+│   ├── test_tools.py              # Scoring tool unit tests
+│   └── requirements-test.txt
+├── docs/
+│   ├── QUICKSTART.md
+│   └── SECRETS.md                 # Secrets reference for all three platforms
 ├── .github/
-│   ├── workflows/
-│   │   ├── deploy-agent-api.yaml
-│   │   ├── deploy-hf-app.yaml
-│   │   └── qodana_code_quality.yml
-│   ├── dependabot.yml
-│   └── FUNDING.yml
-├── Dockerfile                # Cloud Run container (non-root, 3.14-slim)
-├── .dockerignore
-├── SECURITY.md
-└── LICENSE
+│   └── workflows/
+│       ├── ci.yaml
+│       ├── deploy-agent-api.yaml
+│       └── deploy-hf-app.yaml
+├── Dockerfile                     # python:3.14-slim, non-root appuser
+└── SECURITY.md
 ```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| AI framework | Google Agent Development Kit (ADK) |
+| LLM | Gemini 2.5 Flash + Lite fallback on 503/429 |
+| API | FastAPI + Uvicorn |
+| Frontend | Gradio |
+| Language | Python 3.14 |
+| Container | Docker (`python:3.14-slim`, non-root) |
+| Session DB | PostgreSQL via `asyncpg` / SQLite for local dev |
+| CI/CD | GitHub Actions (SHA-pinned, WIF auth) |
+| Secrets | Google Secret Manager |
+| Registry | Artifact Registry (immutable tags, vulnerability scanning) |
+| Bot protection | Cloudflare Turnstile |
+| Tests | pytest + testcontainers |
+
+---
 
 ## Testing
 
 ```bash
+# Unit + API security tests (no external services)
+python3 -m pytest tests/ -v -k "not integration"
+
+# Full suite including PostgreSQL persistence (requires Docker)
+pip install -r tests/requirements-test.txt
 python3 -m pytest tests/ -v
 ```
 
-## Environment Variables
+---
 
-### Agent API (Cloud Run — injected via Secret Manager)
+## Secrets Reference
 
-| Variable | Source | Note |
-|---|---|---|
-| `GOOGLE_API_KEY` | Secret Manager | Gemini API key |
-| `PROXY_AUTH_TOKEN` | Secret Manager | Shared secret for relay auth |
-| `TURNSTILE_SECRET_KEY` | Secret Manager | Cloudflare Turnstile server-side secret |
+See [docs/SECRETS.md](docs/SECRETS.md) for the full breakdown of what goes where across GitHub, Google Cloud, and Hugging Face.
 
-### Frontend (HF Space — set in Space settings)
-
-| Variable | Type | Description |
-|---|---|---|
-| `AGENT_API_URL` | Secret | Cloud Run service URL |
-| `PROXY_AUTH_TOKEN` | Secret | Shared secret for relay |
-| `TURNSTILE_SITE_KEY` | Variable | Cloudflare Turnstile public key |
-
-### Optional model override
-
-```bash
-GEMINI_MODEL=gemini-2.5-flash
-GEMINI_FALLBACK_MODEL=gemini-2.5-flash-lite
-```
+---
 
 ## License
 

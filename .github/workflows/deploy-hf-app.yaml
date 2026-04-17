@@ -1,10 +1,8 @@
 name: Deploy Frontend to Hugging Face
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
+  push:
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -15,6 +13,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  run-ci:
+    name: Run CI
+    uses: ./.github/workflows/ci.yaml
+
   # ============================================================================
   # Deploy the Mini-Frontend to Hugging Face Spaces
   # ============================================================================
@@ -23,11 +25,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
+    needs: run-ci
     permissions:
       contents: read
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
 
     steps:
       - name: Checkout code

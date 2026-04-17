@@ -9,9 +9,8 @@ from google.adk.code_executors import BuiltInCodeExecutor
 from google.adk.memory import InMemoryMemoryService
 from google.adk.models.google_llm import Gemini
 from google.adk.runners import Runner
-from google.adk.sessions import DatabaseSessionService, InMemorySessionService
-from google.adk.tools import AgentTool, FunctionTool, google_search, preload_memory
-from google.adk.tools.tool_context import ToolContext
+from google.adk.sessions import InMemorySessionService
+from google.adk.tools import AgentTool, FunctionTool, google_search
 from google.genai import types
 
 from .scoring_tools import calculate_distance_score, get_place_category_boost
@@ -20,25 +19,6 @@ try:
     from google.genai import errors as genai_errors
 except ImportError:  # pragma: no cover
     genai_errors = None
-
-
-def save_user_preferences(
-    tool_context: ToolContext, city: str, preferences: str
-) -> Dict[str, Any]:
-    tool_context.state["user:last_city"] = city
-    tool_context.state["user:last_preferences"] = preferences
-    return {"status": "success", "message": f"Saved preferences for {city}"}
-
-
-def retrieve_user_preferences(tool_context: ToolContext) -> Dict[str, Any]:
-    city = tool_context.state.get("user:last_city", "Not set")
-    preferences = tool_context.state.get("user:last_preferences", "Not set")
-
-    return {
-        "status": "success",
-        "city": city,
-        "preferences": preferences,
-    }
 
 
 def is_transient_model_error(exc: BaseException) -> bool:
@@ -148,8 +128,12 @@ def initialize_multi_agent_system(
             retry_options=retry_config,
         ),
         instruction="""
-You are a specialized research agent. Your only job is to use the google_search tool 
-    to find relevant places, attractions, restaurants, and activities.
+You are a specialized research agent. Your only job is to use the google_search tool
+to find relevant places, attractions, restaurants, and activities.
+
+The prompt contains the user's current city and preferences. If past preferences are
+provided as additional context, treat them as taste signals when forming search queries
+— not to repeat old results, but to understand the user's style and refine your search.
 
 Search for 5-7 specific places that match the user's interests. For each place, gather:
 - Name of the place
@@ -214,10 +198,7 @@ Output a curated list with:
         "tools": [
             FunctionTool(func=calculate_distance_score),
             FunctionTool(func=get_place_category_boost),
-            FunctionTool(func=save_user_preferences),
-            FunctionTool(func=retrieve_user_preferences),
             AgentTool(agent=calculation_agent),
-            preload_memory,
         ],
         "output_key": "filtered_results",
     }
@@ -267,32 +248,16 @@ End with a friendly summary of the recommendations.""",
         )
         announce("🔧 Custom Tools: calculate_distance_score, get_place_category_boost")
         announce("🤖 Agent Tools: CalculationAgent (code executor)")
-        announce("💾 Session State: save_user_preferences, retrieve_user_preferences")
-        announce("🧠 Memory: preload_memory for long-term recall")
 
     return root_agent
 
 
-def initialize_services(
-    topic: Optional[str] = None,
-    db_url: str = "sqlite:///places_search_sessions.db",
-) -> Tuple[Any, Any, bool, Optional[BaseException]]:
-    if topic:
-        try:
-            session_service = DatabaseSessionService(db_url=db_url)
-            using_database = True
-            db_error: Optional[BaseException] = None
-        except Exception as e:
-            session_service = InMemorySessionService()
-            using_database = False
-            db_error = e
-    else:
-        session_service = InMemorySessionService()
-        using_database = False
-        db_error = None
+def initialize_services() -> Tuple[Any, Any]:
+    """Return in-memory session and memory services.
 
-    memory_service = InMemoryMemoryService()
-    return session_service, memory_service, using_database, db_error
+    Topic persistence is managed externally via the topic_preferences module.
+    """
+    return InMemorySessionService(), InMemoryMemoryService()
 
 
 def create_app(
@@ -312,10 +277,9 @@ def create_app(
     )
 
 
-def generate_session_id(user_id: str, topic: Optional[str]) -> str:
-    if topic:
-        return f"{user_id}::{topic}"
-    return f"{user_id}::temp::{uuid.uuid4()}"
+def generate_session_id() -> str:
+    """Return a unique session ID for a single request."""
+    return str(uuid.uuid4())
 
 
 async def create_or_retrieve_session(

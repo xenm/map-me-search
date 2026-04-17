@@ -1,10 +1,8 @@
 name: Deploy Agent API to Cloud Run
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
+  push:
+    branches: ['main']
   workflow_dispatch:
 
 permissions:
@@ -15,6 +13,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  run-ci:
+    name: Run CI
+    uses: ./.github/workflows/ci.yaml
+
   # ============================================================================
   # Build, push, and deploy the Agent API to Cloud Run
   # ============================================================================
@@ -23,12 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
+    needs: run-ci
     permissions:
       contents: 'read'
       id-token: 'write'
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
 
     steps:
       - name: Checkout code
@@ -61,7 +61,7 @@ jobs:
             --image="${IMAGE}" \
             --region=${{ vars.GCP_REGION }} \
             --service-account=${{ vars.CLOUD_RUN_RUNTIME_SA_EMAIL }} \
-            --update-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,PROXY_AUTH_TOKEN=PROXY_AUTH_TOKEN:latest,TURNSTILE_SECRET_KEY=TURNSTILE_SECRET_KEY:latest \
+            --update-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,PROXY_AUTH_TOKEN=PROXY_AUTH_TOKEN:latest,TURNSTILE_SECRET_KEY=TURNSTILE_SECRET_KEY:latest,DATABASE_URL=DATABASE_URL:latest \
             --port=8080 \
             --allow-unauthenticated \
             --quiet

@@ -16,7 +16,7 @@ os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "FALSE")
 os.environ.setdefault("GOOGLE_API_KEY", "fake-key-for-test")
 
 from fastapi.testclient import TestClient
-from agent.agent_api import app
+from agent.agent_api import _build_search_prompt, app
 
 
 client = TestClient(app, raise_server_exceptions=False)
@@ -115,3 +115,38 @@ class TestRequestValidation:
         )
         # Should not be 422 (validation passed); will fail at Turnstile
         assert resp.status_code != 422
+
+
+# ============================================================================
+# _build_search_prompt
+# ============================================================================
+
+
+class TestBuildSearchPrompt:
+    def test_no_past_preferences_returns_base_prompt(self):
+        result = _build_search_prompt("Paris", "museums", "")
+        assert "Paris" in result
+        assert "museums" in result
+        assert "accumulated preferences" not in result
+
+    def test_with_past_preferences_injects_context(self):
+        past = "- coffee shops\n- art galleries"
+        result = _build_search_prompt("Berlin", "nightlife", past)
+        assert "Berlin" in result
+        assert "nightlife" in result
+        assert "accumulated preferences" in result
+        assert past in result
+
+    def test_no_past_preferences_is_single_sentence(self):
+        result = _build_search_prompt("Rome", "pizza", "")
+        assert "\n\n" not in result
+
+    def test_with_past_preferences_has_separator(self):
+        result = _build_search_prompt("Tokyo", "ramen", "- ramen bars")
+        assert "\n\n" in result
+
+    def test_city_and_preferences_always_present(self):
+        for past in ("", "- hiking"):
+            result = _build_search_prompt("Oslo", "fjords", past)
+            assert "Oslo" in result
+            assert "fjords" in result
