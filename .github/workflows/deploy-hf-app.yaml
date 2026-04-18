@@ -16,7 +16,6 @@ jobs:
   run-ci:
     name: Run CI
     uses: ./.github/workflows/ci.yaml
-    secrets: inherit
     permissions:
       contents: read
 
