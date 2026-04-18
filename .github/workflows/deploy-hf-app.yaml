@@ -8,10 +8,6 @@ on:
       - '.github/workflows/deploy-hf-app.yaml'
   workflow_dispatch:
 
-permissions:
-  actions: read
-  contents: read
-
 concurrency:
   group: deploy-hf-app-${{ github.ref }}
   cancel-in-progress: false
@@ -20,6 +16,9 @@ jobs:
   run-ci:
     name: Run CI
     uses: ./.github/workflows/ci.yaml
+    secrets: inherit
+    permissions:
+      contents: read
 
   # ============================================================================
   # Deploy the Mini-Frontend to Hugging Face Spaces
@@ -37,33 +36,67 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Install Git LFS
-        run: git lfs install
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.14'
 
-      - name: Configure Git
-        run: |
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "GitHub Actions"
-
-      - name: Push to Hugging Face Hub
+      - name: Validate Hugging Face credentials
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_USERNAME: ${{ vars.HF_USERNAME }}
-          SPACE_NAME: ${{ vars.HF_SPACE_NAME }}
+          HF_SPACE_NAME: ${{ vars.HF_SPACE_NAME }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "Error: HF_TOKEN is not set"
+            exit 1
+          fi
+          if [ -z "$HF_USERNAME" ]; then
+            echo "Error: HF_USERNAME is not set"
+            exit 1
+          fi
+          if [ -z "$HF_SPACE_NAME" ]; then
+            echo "Error: HF_SPACE_NAME is not set"
+            exit 1
+          fi
+          echo "All required environment variables are set"
+
+      - name: Install huggingface_hub
+        run: pip install --disable-pip-version-check 'huggingface_hub>=0.27,<0.28'
+
+      # Use huggingface_hub API instead of git push for better DevSecOps practices in a public repo (no token in Git remotes/logs)
+      # Note: upload_folder() does not respect .gitignore, so allow_patterns is used to explicitly whitelist deployable files
+      # delete_patterns="*" ensures the Space exactly mirrors the local folder by removing orphaned files from previous deployments
+      - name: Deploy to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ vars.HF_USERNAME }}
+          HF_SPACE_NAME: ${{ vars.HF_SPACE_NAME }}
         run: |
           echo "🚀 Deploying frontend to Hugging Face Spaces..."
-          cd frontend
-          
-          rm -rf .git
-          git init
-          git add .
-          git commit -m "Deploy from GitHub Actions - $(date '+%Y-%m-%d %H:%M:%S')"
-          git branch -M main
-          git remote add hf https://huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME
-          git -c http.extraHeader="Authorization: Bearer $HF_TOKEN" push --force hf main
-          
-          echo "✅ Deployment to Hugging Face completed!"
-          echo "🌐 Visit: https://huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME"
+          python << 'EOF'
+          import os
+          from huggingface_hub import HfApi
+
+          token = os.environ["HF_TOKEN"]
+          username = os.environ["HF_USERNAME"]
+          space_name = os.environ["HF_SPACE_NAME"]
+          repo_id = f"{username}/{space_name}"
+
+          api = HfApi(token=token)
+          api.upload_folder(
+              folder_path="frontend",
+              repo_id=repo_id,
+              repo_type="space",
+              commit_message="Deploy frontend from GitHub Actions",
+              # Explicitly whitelist only files that should be in the Space (upload_folder doesn't respect .gitignore)
+              allow_patterns=["*.py", "requirements.txt", "README.md", ".env.example"],
+              ignore_patterns=[".git/*", "__pycache__/*", "*.pyc"],
+              # Ensure the Space exactly mirrors the local folder by removing orphaned files from previous deployments
+              delete_patterns="*"
+          )
+          print("✅ Deployment to Hugging Face completed!")
+          EOF
 
   # ============================================================================
   # Summary
