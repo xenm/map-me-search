@@ -2,7 +2,11 @@ name: Deploy Agent API to Cloud Run
 
 on:
   push:
-    branches: ['main']
+    branches: [main]
+    paths:
+      - 'agent/**'
+      - 'Dockerfile'
+      - '.github/workflows/deploy-agent-api.yaml'
   workflow_dispatch:
 
 permissions:

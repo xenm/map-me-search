@@ -2,7 +2,10 @@ name: Deploy Frontend to Hugging Face
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-hf-app.yaml'
   workflow_dispatch:
 
 permissions:
