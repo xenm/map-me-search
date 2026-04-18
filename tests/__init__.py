@@ -1,8 +1,8 @@
 """
-Test suite for AI-Powered Nearby Places Search (Day 4b)
+Test suite for AI-Powered Nearby Places Search
 
 Contains:
-- Unit tests for custom tools
-- Integration test cases (evalset.json)
-- Evaluation configuration
+- Unit tests for custom scoring tools
+- API tests for security layer (auth, Turnstile, endpoint validation)
+- Integration tests for frontend relay → agent API flow
 """

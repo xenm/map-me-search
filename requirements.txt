@@ -1,4 +1,0 @@
-google-adk
-python-dotenv
-protobuf
-pytest>=7.0.0

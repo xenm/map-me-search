@@ -1,63 +1,74 @@
-# ⚡ Quick Start - AI Places Search
+# QUICKSTART (Local Development)
 
-## 🎯 What This Does
-Searches for nearby places based on your city and preferences using Google's Gemini AI.
+Run both components locally with the fewest possible steps.
 
-## 🏃 3 Steps to Run
+## Requirements
 
-### 1️⃣ Install Dependencies
+- Python 3.14+
+- Docker (for the required local PostgreSQL container)
+- Gemini API key (get one from [Google AI Studio](https://aistudio.google.com/app/apikey)) — **optional for local dev**; keep the default `test-api-key-returns-dummy-response` to use the built-in dummy LLM stub that still exercises the full DB → prompt → persistence flow
+
+## 1) Start PostgreSQL (required)
+
+The app no longer ships an in-memory / SQLite fallback — every run reads and writes `topic_preferences` in Postgres.
+
 ```bash
-pip install google-adk python-dotenv
+docker compose up -d postgres
 ```
 
-### 2️⃣ Add Your API Key
-1. Get API key: https://aistudio.google.com/app/apikey
-2. Create `.env` file:
-   ```bash
-   cp .env.example .env
-   ```
-3. Edit `.env` and add your key:
-   ```
-   GOOGLE_API_KEY=your_actual_key_here
-   ```
+This brings up `postgres:16-alpine` on `localhost:5432` (user/password/db all `mapme`). Tear it down with `docker compose down` (add `-v` to wipe the volume).
 
-### 3️⃣ Run It!
+## 2) Agent API
+
 ```bash
-python main.py
+# Install dependencies
+pip install -r agent/requirements.txt
+
+# Create .env from template (includes a ready-to-use DATABASE_URL pointing at
+# the docker compose container, and a dummy Gemini key for offline dev)
+cp agent/.env.example agent/.env
+# Optional: edit agent/.env → set GOOGLE_API_KEY=your_real_key for live results
+
+# Start the API server
+uvicorn agent.agent_api:app --port 8080
 ```
 
-## 💡 Example Usage
+The API is now running at `http://localhost:8080`. Verify with:
 
-```
-📍 Enter city name: Tokyo
-❤️  What do you like?: ramen and temples
-
-🔍 Searching...
-
-📍 SEARCH RESULTS
-============================================================
-Here are some great places in Tokyo for ramen and temples:
-
-1. **Ichiran Ramen (Shibuya)** - Famous tonkotsu ramen chain...
-2. **Senso-ji Temple** - Tokyo's oldest Buddhist temple...
-3. **Afuri Ramen** - Known for yuzu-infused ramen...
-...
-============================================================
+```bash
+curl http://localhost:8080/health
 ```
 
-## 📚 More Information
-- **Full Documentation**: See `PROJECT_README.md`
-- **Setup Troubleshooting**: See `SETUP.md`
-- **Verify Installation**: Run `python verify_setup.py`
+## 3) Frontend
 
-## 🎨 Project Structure
-```
-map-me-search/
-├── main.py              # 👈 Run this file
-├── requirements.txt     # Dependencies
-├── .env.example         # Template for API key
-└── .env                 # Your actual API key (create this)
+In a second terminal:
+
+```bash
+# Install dependencies
+pip install -r frontend/requirements.txt
+
+# Create .env from template (defaults to localhost:8080 + Turnstile test keys)
+cp frontend/.env.example frontend/.env
+
+# Start Gradio
+python frontend/hf_app.py
 ```
 
----
-🚀 **Ready?** Run `python main.py` and start exploring!
+Open `http://localhost:7860` in your browser.
+
+## Optional: model selection
+
+By default the agent uses `gemini-2.5-flash` and falls back to `gemini-2.5-flash-lite` on transient 503/429 errors.
+
+Override in your shell:
+
+```bash
+export GEMINI_MODEL=gemini-2.5-flash
+export GEMINI_FALLBACK_MODEL=gemini-2.5-flash-lite
+```
+
+## Running tests
+
+```bash
+python3 -m pytest tests/ -v
+```

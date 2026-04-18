@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  workflow_call:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================================
+  # Lint and static analysis
+  # ============================================================================
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Python
+        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+        with:
+          python-version: '3.14'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install ruff
+          pip install -r agent/requirements.txt
+          pip install -r frontend/requirements.txt
+          pip install -r tests/requirements-test.txt
+
+      - name: Run ruff check
+        run: ruff check agent/ frontend/ tests/
+
+      - name: Run ruff format check
+        run: ruff format --check agent/ frontend/ tests/
+
+  # ============================================================================
+  # Unit tests
+  # ============================================================================
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Python
+        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+        with:
+          python-version: '3.14'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r agent/requirements.txt
+          pip install -r frontend/requirements.txt
+          pip install -r tests/requirements-test.txt
+
+      - name: Run unit tests
+        run: python -m pytest tests/ -v -k "not integration"
+
+  # ============================================================================
+  # Integration tests
+  # ============================================================================
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Python
+        uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+        with:
+          python-version: '3.14'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r agent/requirements.txt
+          pip install -r frontend/requirements.txt
+          pip install -r tests/requirements-test.txt
+
+      - name: Run integration tests
+        run: python -m pytest tests/ -v -k "integration"

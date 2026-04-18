@@ -3,6 +3,9 @@
 
 # Rider
 .idea/
+
+# Windsurf
+.windsurf/
 *.sln.iml
 
 # Byte-compiled / optimized / DLL files
@@ -205,3 +208,12 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Project-specific
+agent/.env
+frontend/.env
+*.db
+places_search_sessions.db
+places_search.log
+key.json
+.DS_Store
