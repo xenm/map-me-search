@@ -58,6 +58,7 @@ jobs:
           git init
           git add .
           git commit -m "Deploy from GitHub Actions - $(date '+%Y-%m-%d %H:%M:%S')"
+          git branch -M main
           git remote add hf https://huggingface.co/spaces/$HF_USERNAME/$SPACE_NAME
           git -c http.extraHeader="Authorization: Bearer $HF_TOKEN" push --force hf main
           
