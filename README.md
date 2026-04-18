@@ -101,7 +101,7 @@ flowchart LR
     CI -->|lint + unit + integration tests| Gate{passed?}
     Gate -->|yes| DA[deploy-agent-api\nCloud Run]
     Gate -->|yes| DH[deploy-hf-app\nHugging Face]
-    Gate -->|no| ✗[blocked]
+    Gate -->|no| Blocked[✗ blocked]
 ```
 
 | Workflow | Trigger | What it does |
