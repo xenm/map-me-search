@@ -580,12 +580,176 @@ footer,
 }
 """
 
+TOGGLE_TOPIC_JS = """
+(enabled) => {
+    return [
+        { __type__: "update", visible: enabled, interactive: enabled },
+        { __type__: "update", visible: enabled }
+    ];
+}
+"""
+
 # Build the Gradio interface
 with gr.Blocks(
     title="AI Places Search",
-    theme=gr.themes.Base(),
-    css=custom_css,
-    head=f"""
+) as demo:
+    gr.HTML(
+        "<div class='md-title-frame'><h1 class='md-title-simple'>MapMe Search</h1></div>"
+    )
+
+    with gr.Column(elem_classes=["md-card"]):
+        city_input = gr.Textbox(
+            label="Place",
+            placeholder="Enter a location",
+        )
+
+        preferences_input = gr.Textbox(
+            label="Preferences",
+            placeholder="Describe what you want to explore",
+        )
+
+        topic_toggle = gr.Checkbox(
+            label="Remember search context",
+            value=False,
+            info="This topic acts as a memory key. All past preferences saved under this exact topic will be added to your search.",
+            elem_classes=["md-toggle"],
+        )
+
+        topic_input = gr.Textbox(
+            label="Topic Key",
+            placeholder="Type a common word or unique string",
+            interactive=False,
+            visible=False,
+        )
+
+        topic_help = gr.HTML(
+            value=(
+                "<div style='font-size:0.82rem;line-height:1.6;color:var(--text-secondary);"
+                "border-left:2px solid var(--accent-soft);padding:10px 14px;margin-top:4px;"
+                "background:rgba(93,228,255,0.04);border-radius:0 6px 6px 0;text-align:left;'>"
+                "<div style='color:var(--accent-strong);font-weight:600;letter-spacing:0.04em;"
+                "text-transform:uppercase;font-size:0.72rem;margin-bottom:6px;'>How this topic key works</div>"
+                "<b>Empty</b>: Fully anonymous. No past context is used or saved.<br>"
+                "<b>Common word</b> (e.g. <i>food</i>): Shared pool. You use and add to the preferences of everyone who used this key.<br>"
+                "<b>Unique string</b> (e.g. <i>xk9-mytrip</i>): Private session. If no one else guesses it, only your own history is used."
+                "</div>"
+            ),
+            visible=False,
+        )
+
+        topic_toggle.change(
+            fn=None,
+            inputs=[topic_toggle],
+            outputs=[topic_input, topic_help],
+            js=TOGGLE_TOPIC_JS,
+            show_progress="hidden",
+        )
+
+        # Hidden Turnstile token (populated by JS callback)
+        turnstile_token = gr.Textbox(
+            elem_id="turnstile-token",
+            label="",
+            container=False,
+            elem_classes=["turnstile-hidden"],
+        )
+
+        search_btn = gr.Button("Search Places", variant="primary", size="lg")
+
+    with gr.Column(elem_classes=["md-output"]):
+        output = gr.Markdown(
+            label="Recommendations",
+            value="*Enter a place and your preferences, then click Search*",
+        )
+
+    # Search button with loading state — disable while running
+    def _start_search():
+        return (
+            gr.update(value="⠋ **Searching places**\n\nRunning for 0.0s"),
+            gr.update(interactive=False, value="Searching…"),
+        )
+
+    def _do_search(city, preferences, topic, topic_enabled, token):
+        effective_topic = topic.strip().lower() if topic_enabled else ""
+        started = time.perf_counter()
+        spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        frame_index = 0
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(
+                sync_relay_search, city, preferences, effective_topic, token
+            )
+            while not future.done():
+                elapsed = time.perf_counter() - started
+                frame = spinner_frames[frame_index % len(spinner_frames)]
+                frame_index += 1
+                yield (
+                    f"{frame} **Searching places**\n\nRunning for {elapsed:.1f}s",
+                    gr.update(interactive=False, value="Searching…"),
+                )
+                time.sleep(0.2)
+
+            try:
+                result = future.result()
+            except (RuntimeError, concurrent.futures.CancelledError):
+                logger.exception("Search execution failed")
+                result = "Could not complete the search. Please try again."
+
+        yield result, gr.update(interactive=True, value="Search Places")
+
+    search_btn.click(
+        fn=_start_search,
+        outputs=[output, search_btn],
+        show_progress="hidden",
+    ).then(
+        fn=_do_search,
+        inputs=[
+            city_input,
+            preferences_input,
+            topic_input,
+            topic_toggle,
+            turnstile_token,
+        ],
+        outputs=[output, search_btn],
+        show_progress="hidden",
+    ).then(
+        fn=lambda: gr.update(value=""),
+        outputs=[turnstile_token],
+        js="() => { try { if (window.turnstile) { window.turnstile.reset(); } } catch (e) { console.error('[Turnstile] reset failed', e); } return []; }",
+        show_progress="hidden",
+    )
+
+    gr.HTML(
+        f"""
+        <div class="turnstile-box">
+          <div class="cf-turnstile"
+               data-sitekey="{TURNSTILE_SITE_KEY}"
+               data-callback="onTurnstileSuccess"
+               data-theme="dark"></div>
+        </div>
+        """
+    )
+
+    gr.HTML(
+        "<div style='font-size:0.76rem;color:var(--text-muted);text-align:center;padding:10px 0 10px 0;'>"
+        "Made with <a href='https://ai.google.dev/gemini-api' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);'>Gemini</a>"
+        " &amp; <a href='https://gradio.app' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);'>Gradio</a> · "
+        "Explore the code on "
+        "<a href='https://github.com/xenm/map-me-search' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);font-weight:600;'>"
+        "GitHub ↗</a></div>"
+    )
+
+
+# ============================================================================
+# Launch
+# ============================================================================
+
+if __name__ == "__main__":
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=7860,
+        share=False,
+        theme=gr.themes.Base(),
+        css=custom_css,
+        head=f"""
     <meta name="color-scheme" content="dark">
     <script>
     // Force dark mode regardless of device preference (iPhones in light mode would
@@ -692,164 +856,4 @@ with gr.Blocks(
     }});
     </script>
     """,  # noqa: F541
-) as demo:
-    gr.HTML(
-        "<div class='md-title-frame'><h1 class='md-title-simple'>MapMe Search</h1></div>"
-    )
-
-    with gr.Column(elem_classes=["md-card"]):
-        city_input = gr.Textbox(
-            label="Place",
-            placeholder="Enter a location",
-        )
-
-        preferences_input = gr.Textbox(
-            label="Preferences",
-            placeholder="Describe what you want to explore",
-        )
-
-        topic_toggle = gr.Checkbox(
-            label="Remember search context",
-            value=False,
-            info="This topic acts as a memory key. All past preferences saved under this exact topic will be added to your search.",
-            elem_classes=["md-toggle"],
-        )
-
-        topic_input = gr.Textbox(
-            label="Topic Key",
-            placeholder="Type a common word or unique string",
-            interactive=False,
-            visible=False,
-        )
-
-        topic_help = gr.Markdown(
-            value=(
-                "<div style='font-size:0.82rem;line-height:1.6;color:var(--text-secondary);"
-                "border-left:2px solid var(--accent-soft);padding:10px 14px;margin-top:4px;"
-                "background:rgba(93,228,255,0.04);border-radius:0 6px 6px 0;text-align:left;'>"
-                "<div style='color:var(--accent-strong);font-weight:600;letter-spacing:0.04em;"
-                "text-transform:uppercase;font-size:0.72rem;margin-bottom:6px;'>How this topic key works</div>"
-                "<b>Empty</b>: Fully anonymous. No past context is used or saved.<br>"
-                "<b>Common word</b> (e.g. <i>food</i>): Shared pool. You use and add to the preferences of everyone who used this key.<br>"
-                "<b>Unique string</b> (e.g. <i>xk9-mytrip</i>): Private session. If no one else guesses it, only your own history is used."
-                "</div>"
-            ),
-            visible=False,
-        )
-
-        def _toggle_topic(enabled: bool):
-            return (
-                gr.update(interactive=enabled, visible=enabled),
-                gr.update(visible=enabled),
-            )
-
-        topic_toggle.change(
-            fn=_toggle_topic,
-            inputs=[topic_toggle],
-            outputs=[topic_input, topic_help],
-            show_progress="hidden",
-        )
-
-        # Hidden Turnstile token (populated by JS callback)
-        turnstile_token = gr.Textbox(
-            elem_id="turnstile-token",
-            label="",
-            container=False,
-            elem_classes=["turnstile-hidden"],
-        )
-
-        search_btn = gr.Button("Search Places", variant="primary", size="lg")
-
-    with gr.Column(elem_classes=["md-output"]):
-        output = gr.Markdown(
-            label="Recommendations",
-            value="*Enter a place and your preferences, then click Search*",
-        )
-
-    # Search button with loading state — disable while running
-    def _start_search():
-        return (
-            gr.update(value="⠋ **Searching places**\n\nRunning for 0.0s"),
-            gr.update(interactive=False, value="Searching…"),
-        )
-
-    def _do_search(city, preferences, topic, topic_enabled, token):
-        effective_topic = topic.strip().lower() if topic_enabled else ""
-        started = time.perf_counter()
-        spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-        frame_index = 0
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(
-                sync_relay_search, city, preferences, effective_topic, token
-            )
-            while not future.done():
-                elapsed = time.perf_counter() - started
-                frame = spinner_frames[frame_index % len(spinner_frames)]
-                frame_index += 1
-                yield (
-                    f"{frame} **Searching places**\n\nRunning for {elapsed:.1f}s",
-                    gr.update(interactive=False, value="Searching…"),
-                )
-                time.sleep(0.2)
-
-            try:
-                result = future.result()
-            except (RuntimeError, concurrent.futures.CancelledError):
-                logger.exception("Search execution failed")
-                result = "Could not complete the search. Please try again."
-
-        yield result, gr.update(interactive=True, value="Search Places")
-
-    search_btn.click(
-        fn=_start_search,
-        outputs=[output, search_btn],
-        show_progress="hidden",
-    ).then(
-        fn=_do_search,
-        inputs=[
-            city_input,
-            preferences_input,
-            topic_input,
-            topic_toggle,
-            turnstile_token,
-        ],
-        outputs=[output, search_btn],
-        show_progress="hidden",
-    ).then(
-        fn=lambda: gr.update(value=""),
-        outputs=[turnstile_token],
-        js="() => { try { if (window.turnstile) { window.turnstile.reset(); } } catch (e) { console.error('[Turnstile] reset failed', e); } return []; }",
-        show_progress="hidden",
-    )
-
-    gr.HTML(
-        f"""
-        <div class="turnstile-box">
-          <div class="cf-turnstile"
-               data-sitekey="{TURNSTILE_SITE_KEY}"
-               data-callback="onTurnstileSuccess"
-               data-theme="dark"></div>
-        </div>
-        """
-    )
-
-    gr.HTML(
-        "<div style='font-size:0.76rem;color:var(--text-muted);text-align:center;padding:10px 0 10px 0;'>"
-        "Made with <a href='https://ai.google.dev/gemini-api' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);'>Gemini</a>"
-        " &amp; <a href='https://gradio.app' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);'>Gradio</a> · "
-        "Explore the code on "
-        "<a href='https://github.com/xenm/map-me-search' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);font-weight:600;'>"
-        "GitHub ↗</a></div>"
-    )
-
-
-# ============================================================================
-# Launch
-# ============================================================================
-
-if __name__ == "__main__":
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=False,
     )
