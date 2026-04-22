@@ -116,6 +116,7 @@ custom_css = """
 @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&display=swap');
 
 :root {
+    color-scheme: dark !important;
     --bg-primary: #07090f;
     --bg-secondary: #0b1220;
     --panel-bg: linear-gradient(180deg, rgba(8,18,33,0.92) 0%, rgba(10,23,43,0.88) 100%);
@@ -473,6 +474,115 @@ footer {
     background: transparent !important;
 }
 
+/* === Toggle switch (Topic) === */
+.md-toggle {
+    margin: 10px 0 4px 0 !important;
+}
+
+.md-toggle .block,
+.md-toggle .form,
+.md-toggle .wrap {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+.md-toggle label {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    cursor: pointer !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.01em !important;
+}
+
+.md-toggle label > span,
+.md-toggle label .ml-2 {
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.md-toggle label svg,
+.md-toggle label .checkmark,
+.md-toggle label [data-testid="checkbox-icon"] {
+    display: none !important;
+}
+
+.md-toggle input[type="checkbox"] {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    position: relative !important;
+    width: 42px !important;
+    height: 22px !important;
+    min-width: 42px !important;
+    max-width: 42px !important;
+    border-radius: 999px !important;
+    background: rgba(93, 228, 255, 0.10) !important;
+    border: 1px solid rgba(93, 228, 255, 0.28) !important;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35) !important;
+    transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex-shrink: 0 !important;
+    vertical-align: middle !important;
+}
+
+.md-toggle input[type="checkbox"]::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 2px !important;
+    width: 16px !important;
+    height: 16px !important;
+    border-radius: 50% !important;
+    background: #cfeeff !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 0 6px rgba(93, 228, 255, 0.25) !important;
+    transform: translateY(-50%) !important;
+    transition: left 0.22s ease, background 0.22s ease, box-shadow 0.22s ease !important;
+}
+
+.md-toggle input[type="checkbox"]:hover {
+    border-color: rgba(93, 228, 255, 0.48) !important;
+}
+
+.md-toggle input[type="checkbox"]:checked {
+    background: linear-gradient(135deg, #00a9d6 0%, #33d6ff 100%) !important;
+    border-color: rgba(93, 228, 255, 0.65) !important;
+    box-shadow: 0 0 10px rgba(31, 200, 255, 0.35), inset 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+}
+
+.md-toggle input[type="checkbox"]:checked::before {
+    left: 22px !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45), 0 0 8px rgba(255, 255, 255, 0.5) !important;
+}
+
+.md-toggle input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 2px !important;
+}
+
+.md-toggle .info,
+.md-toggle span[data-testid="block-info"] + *,
+.md-toggle .wrap > span:not(.ml-2) {
+    color: var(--text-muted) !important;
+    font-size: 0.82rem !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+    margin-top: 6px !important;
+    display: block !important;
+}
+
 /* === Turnstile === */
 .turnstile-box {
     margin: 12px 0 2px 0;
@@ -502,8 +612,27 @@ with gr.Blocks(
     theme=gr.themes.Base(),
     css=custom_css,
     head=f"""
+    <meta name="color-scheme" content="dark">
+    <script>
+    // Force dark mode regardless of device preference (iPhones in light mode would
+    // otherwise render Gradio's light theme variables and look wrong).
+    (function forceDarkMode() {{
+        try {{
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+        }} catch (e) {{}}
+    }})();
+    </script>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <script>
+    // Keep forcing the dark class in case Gradio removes it after hydration.
+    function enforceDarkMode() {{
+        if (!document.documentElement.classList.contains('dark')) {{
+            document.documentElement.classList.add('dark');
+        }}
+        document.documentElement.style.colorScheme = 'dark';
+    }}
+
     function applyTextareaAutoGrow() {{
         var textareas = document.querySelectorAll('textarea[data-testid="textbox"]');
         textareas.forEach(function(el) {{
@@ -534,14 +663,25 @@ with gr.Blocks(
     }}
 
     document.addEventListener('DOMContentLoaded', function() {{
+        enforceDarkMode();
         applyMapMeShellTheme();
         applyTextareaAutoGrow();
+        setTimeout(enforceDarkMode, 50);
+        setTimeout(enforceDarkMode, 250);
+        setTimeout(enforceDarkMode, 1000);
         setTimeout(applyMapMeShellTheme, 50);
         setTimeout(applyMapMeShellTheme, 250);
         setTimeout(applyMapMeShellTheme, 1000);
         setTimeout(applyTextareaAutoGrow, 50);
         setTimeout(applyTextareaAutoGrow, 250);
         setTimeout(applyTextareaAutoGrow, 1000);
+
+        // Watch <html> to reassert dark mode if Gradio or the runtime strips it.
+        var htmlObserver = new MutationObserver(enforceDarkMode);
+        htmlObserver.observe(document.documentElement, {{
+            attributes: true,
+            attributeFilter: ['class', 'style']
+        }});
 
         document.addEventListener('input', function(e) {{
             if (e.target && e.target.matches('textarea[data-testid="textbox"]')) {{
@@ -572,7 +712,10 @@ with gr.Blocks(
         }}
     }}
 
-    window.addEventListener('load', applyMapMeShellTheme);
+    window.addEventListener('load', function() {{
+        enforceDarkMode();
+        applyMapMeShellTheme();
+    }});
     </script>
     """,  # noqa: F541
 ) as demo:
@@ -591,9 +734,46 @@ with gr.Blocks(
             placeholder="Describe what you want to explore",
         )
 
+        topic_toggle = gr.Checkbox(
+            label="Remember search context",
+            value=False,
+            info="This topic acts as a memory key. All past preferences saved under this exact topic will be added to your search.",
+            elem_classes=["md-toggle"],
+        )
+
         topic_input = gr.Textbox(
-            label="Topic (Optional)",
-            placeholder="Saves your preferences to this topic",
+            label="Topic Key",
+            placeholder="Type a common word or unique string",
+            interactive=False,
+            visible=False,
+        )
+
+        topic_help = gr.Markdown(
+            value=(
+                "<div style='font-size:0.82rem;line-height:1.6;color:var(--text-secondary);"
+                "border-left:2px solid var(--accent-soft);padding:10px 14px;margin-top:4px;"
+                "background:rgba(93,228,255,0.04);border-radius:0 6px 6px 0;text-align:left;'>"
+                "<div style='color:var(--accent-strong);font-weight:600;letter-spacing:0.04em;"
+                "text-transform:uppercase;font-size:0.72rem;margin-bottom:6px;'>How this topic key works</div>"
+                "<b>Empty</b>: Fully anonymous. No past context is used or saved.<br>"
+                "<b>Common word</b> (e.g. <i>food</i>): Shared pool. You use and add to the preferences of everyone who used this key.<br>"
+                "<b>Unique string</b> (e.g. <i>xk9-mytrip</i>): Private session. If no one else guesses it, only your own history is used."
+                "</div>"
+            ),
+            visible=False,
+        )
+
+        def _toggle_topic(enabled: bool):
+            return (
+                gr.update(interactive=enabled, visible=enabled),
+                gr.update(visible=enabled),
+            )
+
+        topic_toggle.change(
+            fn=_toggle_topic,
+            inputs=[topic_toggle],
+            outputs=[topic_input, topic_help],
+            show_progress="hidden",
         )
 
         # Hidden Turnstile token (populated by JS callback)
@@ -620,12 +800,15 @@ with gr.Blocks(
             gr.update(interactive=False, value="Searching…"),
         )
 
-    def _do_search(city, preferences, topic, token):
+    def _do_search(city, preferences, topic, topic_enabled, token):
+        effective_topic = topic if topic_enabled else ""
         started = time.perf_counter()
         spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
         frame_index = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(sync_relay_search, city, preferences, topic, token)
+            future = pool.submit(
+                sync_relay_search, city, preferences, effective_topic, token
+            )
             while not future.done():
                 elapsed = time.perf_counter() - started
                 frame = spinner_frames[frame_index % len(spinner_frames)]
@@ -650,7 +833,7 @@ with gr.Blocks(
         show_progress="hidden",
     ).then(
         fn=_do_search,
-        inputs=[city_input, preferences_input, topic_input, turnstile_token],
+        inputs=[city_input, preferences_input, topic_input, topic_toggle, turnstile_token],
         outputs=[output, search_btn],
         show_progress="hidden",
     ).then(
@@ -661,19 +844,6 @@ with gr.Blocks(
     )
 
     gr.HTML('<hr class="md-divider">')
-    gr.HTML(
-        "<p style='font-size:0.72rem;font-weight:600;letter-spacing:0.12em;"
-        "text-transform:uppercase;color:var(--accent-strong);margin:24px 0 8px 0;'>Examples</p>"
-    )
-    gr.Examples(
-        examples=[
-            ["Paris", "coffee shops, art museums", "travel-2024"],
-            ["Tokyo", "ramen, anime, nightlife", "japan-trip"],
-            ["New York", "jazz clubs, pizza, rooftop bars", ""],
-            ["Barcelona", "tapas, beaches, architecture", "summer-vacation"],
-        ],
-        inputs=[city_input, preferences_input, topic_input],
-    )
     gr.HTML(
         f"""
         <div class="turnstile-box">
@@ -688,7 +858,7 @@ with gr.Blocks(
     gr.HTML(
         "<div style='font-size:0.76rem;color:var(--text-muted);text-align:center;padding:10px 0 10px 0;'>"
         "Made with <a href='https://ai.google.dev/gemini-api' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);'>Gemini</a>"
-        " &amp; <a href='https://gradio.app' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);'>Gradio</a>"
+        " &amp; <a href='https://gradio.app' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);'>Gradio</a> · "
         "Explore the code on "
         "<a href='https://github.com/xenm/map-me-search' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);font-weight:600;'>"
         "GitHub ↗</a></div>"
