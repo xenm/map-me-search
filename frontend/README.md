@@ -1,5 +1,5 @@
 ---
-title: AI Places Search
+title: MapMe Search
 emoji: 🗺️
 colorFrom: blue
 colorTo: purple

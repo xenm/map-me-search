@@ -426,15 +426,77 @@ footer {
     margin: 0 !important;
 }
 
+/* Outer wrappers: no extra padding so the card edge stays clean. */
 .md-output > div,
 .md-output .wrap,
-.md-output .block,
-.md-output .prose,
-.md-output .prose > * {
+.md-output .block {
     margin-top: 0 !important;
     padding-top: 0 !important;
     margin-bottom: 0 !important;
     padding-bottom: 0 !important;
+}
+
+/* Inside .prose (the rendered Markdown), restore generous vertical rhythm
+   so headings, paragraphs, lists and horizontal rules actually breathe. */
+.md-output .prose {
+    margin: 0 !important;
+    padding: 0 !important;
+    text-align: left !important;
+    width: 100% !important;
+}
+
+.md-output .prose > * {
+    margin: 0 0 0.9em 0 !important;
+    padding: 0 !important;
+    text-align: left !important;
+}
+
+.md-output .prose > *:last-child {
+    margin-bottom: 0 !important;
+}
+
+.md-output .prose h2 {
+    font-size: 1.35rem !important;
+    font-weight: 600 !important;
+    color: var(--text-primary) !important;
+    letter-spacing: 0.02em !important;
+    margin: 0.2em 0 0.6em 0 !important;
+    text-align: center !important;
+}
+
+.md-output .prose h3 {
+    font-size: 1.08rem !important;
+    font-weight: 600 !important;
+    color: var(--accent) !important;
+    margin: 1.1em 0 0.4em 0 !important;
+    text-align: left !important;
+}
+
+.md-output .prose hr {
+    border: none !important;
+    height: 1px !important;
+    background: linear-gradient(90deg, transparent 0%, var(--divider) 50%, transparent 100%) !important;
+    margin: 1.2em 0 !important;
+}
+
+.md-output .prose p,
+.md-output .prose li {
+    text-align: left !important;
+    line-height: 1.65 !important;
+}
+
+.md-output .prose ul,
+.md-output .prose ol {
+    padding-left: 1.25em !important;
+    margin: 0.4em 0 0.9em 0 !important;
+}
+
+.md-output .prose strong {
+    color: var(--text-primary) !important;
+}
+
+.md-output .prose em {
+    color: var(--text-muted) !important;
 }
 
 

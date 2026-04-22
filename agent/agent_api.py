@@ -119,15 +119,18 @@ def initialize_multi_agent_system(model_name: Optional[str] = None):
 def _build_search_prompt(city: str, preferences: str, past_preferences: str) -> str:
     """Build the LLM prompt, injecting past preferences as taste context when available."""
     base = (
-        f"Find nearby places in {city} for someone who likes: {preferences}. "
-        "Provide specific recommendations with names, brief descriptions, "
-        "and why they would enjoy each place."
+        f"City: {city}\n"
+        f"Preferences: {preferences}\n\n"
+        "Goal: recommend 5 specific, currently-operating places in this city "
+        "that fit the preferences above. Return the final answer as a polished "
+        "Markdown guide following the FormatterAgent contract."
     )
     if past_preferences:
         return (
             f"{base}\n\n"
-            "For additional context, here are the user's accumulated preferences "
-            f"from previous searches on this topic:\n{past_preferences}"
+            "Taste hints (optional) — preference phrases from earlier searches "
+            "on this Topic. Use them only where they reinforce or refine the "
+            f"current Preferences.\n\n{past_preferences}"
         )
     return base
 

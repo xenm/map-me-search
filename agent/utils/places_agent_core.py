@@ -128,21 +128,35 @@ def initialize_multi_agent_system(
             retry_options=retry_config,
         ),
         instruction="""
-You are a specialized research agent. Your only job is to use the google_search tool
-to find relevant places, attractions, restaurants, and activities.
+You are a specialized research agent. Your ONLY job is to use the `google_search` tool
+to find real, currently-operating places that match the user's city and preferences.
 
-The prompt contains the user's current city and preferences. If past preferences are
-provided as additional context, treat them as taste signals when forming search queries
-— not to repeat old results, but to understand the user's style and refine your search.
+Inputs in the user prompt:
+- `City` and `Preferences` — the primary intent; always drives the search.
+- Optional `Taste hints` — phrases from earlier searches on the same Topic.
+  They are only preference phrases, not past places or past cities. Use them
+  as soft signals (style, vibe, diet, price range) only when they fit the
+  current Preferences; otherwise ignore them.
 
-Search for 5-7 specific places that match the user's interests. For each place, gather:
-- Name of the place
-- Type (restaurant, museum, park, etc.)
-- Brief description
-- Approximate distance from city center (if available)
-- Why it matches the preferences
+**Hard requirements:**
+- Perform real `google_search` queries. Do not invent places from memory.
+- Return exactly 5–7 distinct, real places.
+- Prefer specific venues over generic neighborhoods.
+- No duplicates, no closed/permanently-shut venues if you can tell.
 
-Present your findings as structured data with clear details for each place.""",
+**Output format (strict):** A plain-text structured list, one block per place,
+blocks separated by a single blank line. Each block MUST contain exactly these
+labeled fields, one per line:
+
+Name: <official place name>
+Type: <restaurant | cafe | museum | gallery | park | bar | shop | viewpoint | ...>
+Neighborhood: <area or district, or "unknown">
+DistanceKm: <approximate km from city center as a number, or "unknown">
+Description: <1–2 sentence factual description>
+WhyMatch: <1 sentence tying it to the user's preferences / taste signals>
+
+Do not add commentary before or after the list. The next agent will parse these
+fields, so stay on-format.""",
         tools=[google_search],
         output_key="research_findings",
     )
@@ -180,21 +194,32 @@ Generate Python code that calculates weighted scores based on the provided data.
             retry_options=retry_config,
         ),
         "instruction": """
-You are a filtering and ranking specialist. Review the research findings from the previous agent.
+You are a filtering and ranking specialist. The previous agent produced a structured
+list of candidate places (fields: Name, Type, Neighborhood, DistanceKm, Description,
+WhyMatch). Parse it and rank them.
 
-Your task:
-1. For each place, use get_place_category_boost() to calculate category relevance
-2. If distance data is available, use calculate_distance_score() for location scoring
-3. Use the CalculationAgent to generate Python code that combines scores into a final rating (1-10)
-4. Check "status" field in each tool response for errors
-5. Select the top 5 highest-scoring places
-6. Organize by final score (highest first)
+Procedure:
+1. For each place, call `get_place_category_boost(category=Type, preferences=...)`
+   to get a category-match boost.
+2. If `DistanceKm` is a number, call `calculate_distance_score(distance_km=...)`
+   for a location score. If it is "unknown", skip distance and note it.
+3. Use the `CalculationAgent` to produce Python code that combines the available
+   scores into a final rating on a **1–10 scale** (weight category heavier than
+   distance; if distance is unknown, use category boost + relevance to preferences).
+4. Always check the `"status"` field in tool responses; skip or warn on errors.
+5. Select the top **5** places and sort by final score descending.
 
-Output a curated list with:
-- Place name
-- Final score (1-10)
-- Score breakdown (category boost, distance score, etc.)
-- Reasoning for selection""",
+**Output format (strict)** — the formatter will parse it. One block per place,
+blocks separated by a single blank line. No prose outside the blocks:
+
+Name: <name>
+Type: <type>
+Neighborhood: <area or "unknown">
+DistanceKm: <number or "unknown">
+Score: <final 1–10 rating, one decimal allowed>
+ScoreBreakdown: category=<n>, distance=<n or "n/a">
+Description: <keep the factual sentence from research>
+WhyMatch: <refined one-sentence reason this place suits the user>""",
         "tools": [
             FunctionTool(func=calculate_distance_score),
             FunctionTool(func=get_place_category_boost),
@@ -218,19 +243,64 @@ Output a curated list with:
             retry_options=retry_config,
         ),
         instruction="""
-You are a presentation specialist. Review the filtered and scored places from the previous agent.
+You are the presentation specialist. You receive the ranked, structured list from
+the FilterAgent and turn it into the final user-facing answer.
 
-Create a beautifully formatted recommendation guide with:
+**Output contract (must follow exactly):**
 
-📍 For each place:
-   • Name and type (bold)
-   • Final relevance score (⭐ 1-10)
-   • Clear description (2-3 sentences)
-   • Why it's perfect for the user's preferences
-   • Score breakdown (if available)
+1. Output **valid GitHub-Flavored Markdown ONLY** — no HTML, no code fences around
+   the whole response, no leading/trailing commentary like "Here is your guide:".
+2. The output will be rendered inside a narrow centered card. Keep lines short,
+   avoid wide tables, and rely on headings + bullets for rhythm.
+3. Use a Markdown horizontal rule (`---`) on its own line as the separator
+   between places. Horizontal rules are the ONLY reliable visual separator in
+   the target UI — blank lines alone will be collapsed.
+4. Emojis are encouraged but used sparingly: one in the H3 heading, optionally
+   one inline per bullet. Never more than ~2 emojis per place.
 
-Make it engaging, easy to read, and helpful. Use emojis strategically. 
-End with a friendly summary of the recommendations.""",
+**Exact structure to produce:**
+
+    ## ✨ Top Picks in <City>
+
+    *A short, warm one-sentence intro tied to the user's preferences.*
+
+    ---
+
+    ### 📍 1. <Place Name> — *<Type>*
+
+    **⭐ Score:** <score>/10 &nbsp;·&nbsp; **📍 Area:** <neighborhood>
+    <when distance is known, append> &nbsp;·&nbsp; **🚶 ~<n> km from center**
+
+    <Description sentence(s) — plain prose, 2–3 sentences max.>
+
+    **Why you'll like it:** <one sentence tying to user's preferences>
+
+    ---
+
+    ### 📍 2. <Place Name> — *<Type>*
+    ... (same block) ...
+
+    ---
+
+    ### 📍 3. <Place Name> — *<Type>*
+    ... etc. for all 5 places ...
+
+    ---
+
+    ### 🎯 In short
+
+    One or two friendly sentences summarizing the picks (e.g. "Start with X for
+    the vibe, then head to Y for…").
+
+**Strict rules:**
+- Always include a `---` line BEFORE the first place, BETWEEN every pair of
+  places, and BEFORE the closing "In short" section.
+- Never place two `###` headings back-to-back without a `---` in between.
+- If the filter provided a `ScoreBreakdown`, you may append it as small italic
+  text on its own line under the score line, e.g. *category 3 · distance 8*.
+- If a field is "unknown", omit that fragment entirely rather than printing
+  "unknown".
+- Do not invent facts not present in the filtered input.""",
         output_key="final_recommendations",
     )
     if announce is not None:
