@@ -570,6 +570,10 @@ footer {
 /* === Turnstile === */
 .turnstile-box {
     margin: 12px 0 2px 0;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
 }
 
 .turnstile-hidden {
@@ -621,6 +625,28 @@ footer,
 [data-testid="gradio-footer"],
 .gradio-container > footer {
     display: none !important;
+}
+
+/* === Mobile Layout Optimizations === */
+@media (max-width: 600px) {
+    .gradio-container {
+        padding: 10px 2% 14px 2% !important;
+        border-radius: 0 !important; /* Optional: flush to edges */
+        border-left: none !important;
+        border-right: none !important;
+    }
+    
+    .md-card {
+        padding: 18px 16px 20px 16px !important;
+    }
+    
+    .md-output {
+        padding: 18px 14px !important;
+    }
+    
+    .md-title-simple {
+        font-size: 2rem !important; /* Slightly smaller title to fit better */
+    }
 }
 """
 
@@ -786,7 +812,7 @@ with gr.Blocks(
         "<a href='https://gradio.app' target='_blank' rel='noopener noreferrer'>Gradio</a>"
         "<span class='separator'>·</span>"
         "<span>Explore the code on</span>"
-        "<a href='https://github.com/xenm/map-me-search' target='_blank' rel='noopener noreferrer' style='font-weight:600;'>GitHub ↗</a>"
+        "<a href='https://github.com/xenm/map-me-search' target='_blank' rel='noopener noreferrer' style='font-weight:600;'>GitHub</a>"
         "</div>"
     )
 
