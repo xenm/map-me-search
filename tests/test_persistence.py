@@ -180,3 +180,52 @@ class TestTopicPreferencesIntegration:
         await _reset_for_testing()
         await _init_with_url(postgres_asyncpg_url)
         assert "rooftop bars" in await get_preferences("persist-test")
+
+    @pytest.mark.asyncio
+    async def test_case_insensitive_read_and_append(self, pg_db):
+        """Mixed-case legacy topics are found case-insensitively and updated in-place."""
+        from sqlalchemy import select, text
+        from agent.utils.topic_preferences import _session_factory, TopicPreference
+
+        # Seed a legacy mixed-case row directly (simulates pre-existing data)
+        async with _session_factory() as session:
+            await session.execute(
+                text(
+                    "INSERT INTO topic_preferences (topic, preferences, version) "
+                    "VALUES (:topic, :preferences, :version)"
+                ),
+                {"topic": "Trip-X", "preferences": "- museums", "version": 1},
+            )
+            await session.commit()
+
+        # Read with different case
+        assert "museums" in await get_preferences("trip-x")
+        # Append with different case
+        await append_and_maybe_summarize("TRIP-X", "parks", "gemini-test")
+        stored = await get_preferences("Trip-X")
+        assert "museums" in stored
+        assert "parks" in stored
+        # Original topic case in DB is preserved
+        async with _session_factory() as session:
+            result = await session.execute(
+                select(TopicPreference).where(TopicPreference.topic == "Trip-X")
+            )
+            row = result.scalar_one()
+        assert row.topic == "Trip-X"
+        assert row.version == 2
+
+    @pytest.mark.asyncio
+    async def test_new_topic_is_lowercased(self, pg_db):
+        """New topics are stored as lowercase."""
+        await append_and_maybe_summarize("NEW-TOPIC", "cafes", "gemini-test")
+        assert "cafes" in await get_preferences("new-topic")
+        # Verify the DB row itself is lowercase
+        from sqlalchemy import select
+        from agent.utils.topic_preferences import _session_factory, TopicPreference
+
+        async with _session_factory() as session:
+            result = await session.execute(
+                select(TopicPreference).where(TopicPreference.topic == "new-topic")
+            )
+            row = result.scalar_one()
+        assert row.topic == "new-topic"

@@ -265,6 +265,9 @@ async def search_places(
 
     When `topic` is None, the database is never touched.
     """
+    if topic:
+        topic = topic.strip().lower()
+
     city_name_clean = _sanitize_log_str(city_name)
     preferences_clean = _sanitize_log_str(preferences)
     topic_clean = _sanitize_log_str(topic) if topic is not None else "transient"

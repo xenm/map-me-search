@@ -15,7 +15,7 @@ import asyncio
 import os
 from typing import Optional
 
-from sqlalchemy import Column, Integer, String, select, text
+from sqlalchemy import Column, Integer, String, func, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -30,7 +30,6 @@ Rules:
 - Return ONLY bullet points, one per line, each starting with "- " (dash space)
 - Merge duplicates and similar items into a single bullet
 - Keep the most specific and useful preferences
-- Maximum 8 bullet points
 - No intro sentence, no conclusion, no blank lines between bullets
 """
 
@@ -147,7 +146,9 @@ async def get_preferences(topic: str) -> str:
     session_factory = _get_session_factory()
     async with session_factory() as session:
         result = await session.execute(
-            select(TopicPreference).where(TopicPreference.topic == topic)
+            select(TopicPreference).where(
+                func.lower(TopicPreference.topic) == topic.lower()
+            )
         )
         row = result.scalar_one_or_none()
         return row.preferences if row is not None else ""
@@ -168,13 +169,20 @@ async def _summarize(preferences: str, model_name: str) -> str:
 async def append_and_maybe_summarize(
     topic: str, new_preference: str, model_name: str
 ) -> None:
-    """Append *new_preference* as a bullet; summarize every 10th version."""
+    """Append *new_preference* as a bullet; summarize every 10th version.
+
+    Reads and writes are case-insensitive. If a row already exists under a
+    different case (legacy entry), it is updated in-place. New rows are keyed
+    with a lowercase topic string.
+    """
     await _ensure_initialized()
     session_factory = _get_session_factory()
     engine = _get_engine()
     async with session_factory() as session:
         async with session.begin():
-            stmt = select(TopicPreference).where(TopicPreference.topic == topic)
+            stmt = select(TopicPreference).where(
+                func.lower(TopicPreference.topic) == topic.lower()
+            )
             if engine.dialect.name == "postgresql":
                 stmt = stmt.with_for_update()
             result = await session.execute(stmt)
@@ -183,10 +191,12 @@ async def append_and_maybe_summarize(
             if row is None:
                 preferences = f"- {new_preference}"
                 version = 1
+                topic_key = topic.lower()
             else:
                 sep = "\n" if row.preferences else ""
                 preferences = f"{row.preferences}{sep}- {new_preference}"
                 version = row.version + 1
+                topic_key = row.topic
 
             if version % 10 == 0:
                 preferences = await _summarize(preferences, model_name)
@@ -199,5 +209,5 @@ async def append_and_maybe_summarize(
                     "preferences = EXCLUDED.preferences, "
                     "version = EXCLUDED.version"
                 ),
-                {"topic": topic, "preferences": preferences, "version": version},
+                {"topic": topic_key, "preferences": preferences, "version": version},
             )
