@@ -2,6 +2,9 @@ name: Deploy Frontend to Hugging Face
 
 on:
   workflow_call:
+    secrets:
+      HF_TOKEN:
+        required: true
   workflow_dispatch:
 
 concurrency:

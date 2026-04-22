@@ -50,7 +50,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     uses: ./.github/workflows/deploy-hf-app.yaml
-    secrets: inherit
+    secrets:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
     permissions:
       contents: read
 
@@ -59,7 +60,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.agent == 'true'
     uses: ./.github/workflows/deploy-agent-api.yaml
-    secrets: inherit
     permissions:
       contents: read
       id-token: write
