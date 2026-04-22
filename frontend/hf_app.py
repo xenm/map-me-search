@@ -116,6 +116,7 @@ custom_css = """
 @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&display=swap');
 
 :root {
+    color-scheme: dark !important;
     --bg-primary: #07090f;
     --bg-secondary: #0b1220;
     --panel-bg: linear-gradient(180deg, rgba(8,18,33,0.92) 0%, rgba(10,23,43,0.88) 100%);
@@ -141,6 +142,9 @@ body, .gradio-container, .gradio-container * {
 html,
 body,
 #root {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background:
         var(--page-glow),
         radial-gradient(circle at 20% 18%, rgba(93, 228, 255, 0.08), transparent 22%),
@@ -177,13 +181,14 @@ footer {
 }
 
 .gradio-container {
-    max-width: 860px !important;
-    margin: auto !important;
+    width: clamp(280px, 100%, 860px) !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
     background: linear-gradient(180deg, rgba(6, 12, 22, 0.78) 0%, rgba(7, 10, 16, 0.80) 100%) !important;
     border: 1px solid rgba(93, 228, 255, 0.14) !important;
     border-radius: 14px !important;
     box-shadow: 0 14px 48px rgba(0,0,0,0.40), 0 0 24px rgba(31,200,255,0.10) !important;
-    padding: 8px 20px 18px 20px !important;
+    padding: 12px 4% 18px 4% !important;
 }
 
 .md-title-simple {
@@ -337,6 +342,12 @@ footer {
     overflow-y: hidden !important;
 }
 
+.gradio-container input,
+.gradio-container textarea {
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
 /* === Block containers === */
 .gradio-container .block {
     background: transparent !important;
@@ -389,38 +400,7 @@ footer {
 }
 
 .md-output [data-testid="status-tracker"] {
-    position: static !important;
-    display: block !important;
-    width: 100% !important;
-    min-height: 34px !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
-    text-align: center !important;
-}
-
-.md-output [data-testid="status-tracker"] > * {
-    display: block !important;
-    text-align: center !important;
-    width: 100% !important;
-}
-
-.md-output [data-testid="status-tracker"] * {
-    white-space: normal !important;
-    overflow-wrap: anywhere !important;
-    color: rgba(228, 246, 255, 0.92) !important;
-    opacity: 1 !important;
-    font-size: 1rem !important;
-    line-height: 1.35 !important;
-}
-
-.md-output [data-testid="status-tracker"] svg,
-.md-output [data-testid="status-tracker"] img {
-    width: 1.1rem !important;
-    height: 1.1rem !important;
-    max-width: none !important;
-    display: inline-block !important;
-    vertical-align: middle !important;
-    margin: 0 0.35rem !important;
+    display: none !important;
 }
 
 .md-output p,
@@ -446,12 +426,17 @@ footer {
     margin: 0 !important;
 }
 
-/* === Divider === */
-.md-divider {
-    border: none;
-    border-top: 1px solid var(--divider);
-    margin: 24px 0;
+.md-output > div,
+.md-output .wrap,
+.md-output .block,
+.md-output .prose,
+.md-output .prose > * {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
 }
+
 
 /* === Examples table === */
 .gr-samples-table td {
@@ -473,9 +458,122 @@ footer {
     background: transparent !important;
 }
 
+/* === Toggle switch (Topic) === */
+.md-toggle {
+    margin: 10px 0 4px 0 !important;
+}
+
+.md-toggle .block,
+.md-toggle .form,
+.md-toggle .wrap {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+.md-toggle label {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    cursor: pointer !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.01em !important;
+}
+
+.md-toggle label > span,
+.md-toggle label .ml-2 {
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.md-toggle label svg,
+.md-toggle label .checkmark,
+.md-toggle label [data-testid="checkbox-icon"] {
+    display: none !important;
+}
+
+.md-toggle input[type="checkbox"] {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    position: relative !important;
+    width: 42px !important;
+    height: 22px !important;
+    min-width: 42px !important;
+    max-width: 42px !important;
+    border-radius: 999px !important;
+    background: rgba(93, 228, 255, 0.10) !important;
+    border: 1px solid rgba(93, 228, 255, 0.28) !important;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35) !important;
+    transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex-shrink: 0 !important;
+    vertical-align: middle !important;
+}
+
+.md-toggle input[type="checkbox"]::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 2px !important;
+    width: 16px !important;
+    height: 16px !important;
+    border-radius: 50% !important;
+    background: #cfeeff !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 0 6px rgba(93, 228, 255, 0.25) !important;
+    transform: translateY(-50%) !important;
+    transition: left 0.22s ease, background 0.22s ease, box-shadow 0.22s ease !important;
+}
+
+.md-toggle input[type="checkbox"]:hover {
+    border-color: rgba(93, 228, 255, 0.48) !important;
+}
+
+.md-toggle input[type="checkbox"]:checked {
+    background: linear-gradient(135deg, #00a9d6 0%, #33d6ff 100%) !important;
+    border-color: rgba(93, 228, 255, 0.65) !important;
+    box-shadow: 0 0 10px rgba(31, 200, 255, 0.35), inset 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+}
+
+.md-toggle input[type="checkbox"]:checked::before {
+    left: 22px !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45), 0 0 8px rgba(255, 255, 255, 0.5) !important;
+}
+
+.md-toggle input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 2px !important;
+}
+
+.md-toggle .info,
+.md-toggle span[data-testid="block-info"] + *,
+.md-toggle .wrap > span:not(.ml-2) {
+    color: var(--text-muted) !important;
+    font-size: 0.82rem !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+    margin-top: 6px !important;
+    display: block !important;
+}
+
 /* === Turnstile === */
 .turnstile-box {
     margin: 12px 0 2px 0;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
 }
 
 .turnstile-hidden {
@@ -486,6 +584,40 @@ footer {
     opacity: 0 !important;
 }
 
+/* === Footer === */
+.md-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    font-size: 0.76rem !important;
+    color: var(--text-muted) !important;
+    padding: 4px 0 !important;
+    line-height: 1.5 !important;
+    flex-wrap: wrap !important;
+    white-space: normal !important;
+}
+
+.md-footer span {
+    white-space: normal !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: var(--text-muted) !important;
+}
+
+.md-footer a {
+    white-space: normal !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: var(--accent-strong) !important;
+    text-decoration: none;
+    transition: opacity 0.15s ease;
+}
+
+.md-footer a:hover {
+    opacity: 0.82;
+}
+
 footer,
 .built-with,
 .settings,
@@ -494,16 +626,230 @@ footer,
 .gradio-container > footer {
     display: none !important;
 }
+
+/* === Mobile Layout Optimizations === */
+@media (max-width: 600px) {
+    .gradio-container {
+        padding: 10px 2% 14px 2% !important;
+        border-radius: 0 !important; /* Optional: flush to edges */
+        border-left: none !important;
+        border-right: none !important;
+    }
+    
+    .md-card {
+        padding: 18px 16px 20px 16px !important;
+    }
+    
+    .md-output {
+        padding: 18px 14px !important;
+    }
+    
+    .md-title-simple {
+        font-size: 2rem !important; /* Slightly smaller title to fit better */
+    }
+}
+"""
+
+TOGGLE_TOPIC_JS = """
+(enabled) => {
+    return [
+        { __type__: "update", visible: enabled, interactive: enabled },
+        { __type__: "update", visible: enabled }
+    ];
+}
 """
 
 # Build the Gradio interface
 with gr.Blocks(
     title="AI Places Search",
-    theme=gr.themes.Base(),
-    css=custom_css,
-    head=f"""
+) as demo:
+    gr.HTML(
+        "<div class='md-title-frame'><h1 class='md-title-simple'>MapMe Search</h1></div>"
+    )
+
+    with gr.Column(elem_classes=["md-card"]):
+        city_input = gr.Textbox(
+            label="Place",
+            placeholder="Enter a location",
+            lines=1,
+            max_lines=2,
+        )
+
+        preferences_input = gr.Textbox(
+            label="Preferences",
+            placeholder="Describe what you want to explore",
+            lines=1,
+            max_lines=4,
+        )
+
+        topic_toggle = gr.Checkbox(
+            label="Remember search context",
+            value=False,
+            info="This topic acts as a memory key. All past preferences saved under this exact topic will be added to your search.",
+            elem_classes=["md-toggle"],
+        )
+
+        topic_input = gr.Textbox(
+            label="Topic Key",
+            placeholder="Type a common word or unique string",
+            interactive=False,
+            visible=False,
+            lines=1,
+            max_lines=2,
+        )
+
+        topic_help = gr.HTML(
+            value=(
+                "<div style='font-size:0.82rem;line-height:1.6;color:var(--text-secondary);"
+                "border-left:2px solid var(--accent-soft);padding:10px 14px;margin-top:4px;"
+                "background:rgba(93,228,255,0.04);border-radius:0 6px 6px 0;text-align:left;'>"
+                "<div style='color:var(--accent-strong);font-weight:600;letter-spacing:0.04em;"
+                "text-transform:uppercase;font-size:0.72rem;margin-bottom:6px;'>How this topic key works</div>"
+                "<b>Empty</b>: Fully anonymous. No past context is used or saved.<br>"
+                "<b>Common word</b> (e.g. <i>food</i>): Shared pool. You use and add to the preferences of everyone who used this key.<br>"
+                "<b>Unique string</b> (e.g. <i>xk9-mytrip</i>): Private session. If no one else guesses it, only your own history is used."
+                "</div>"
+            ),
+            visible=False,
+        )
+
+        topic_toggle.change(
+            fn=None,
+            inputs=[topic_toggle],
+            outputs=[topic_input, topic_help],
+            js=TOGGLE_TOPIC_JS,
+            show_progress="hidden",
+        )
+
+        # Hidden Turnstile token (populated by JS callback)
+        turnstile_token = gr.Textbox(
+            elem_id="turnstile-token",
+            label="",
+            container=False,
+            elem_classes=["turnstile-hidden"],
+        )
+
+        search_btn = gr.Button("Search Places", variant="primary", size="lg")
+
+    with gr.Column(elem_classes=["md-output"]):
+        output = gr.Markdown(
+            label="Recommendations",
+            value="*Enter a place and your preferences, then click Search*",
+        )
+
+    # Search button with loading state — disable while running
+    def _start_search():
+        return (
+            gr.update(value="⠋ **Searching places**\n\nRunning for 0.0s"),
+            gr.update(interactive=False, value="Searching…"),
+        )
+
+    def _do_search(city, preferences, topic, topic_enabled, token):
+        effective_topic = topic.strip().lower() if topic_enabled else ""
+        started = time.perf_counter()
+        spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        frame_index = 0
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(
+                sync_relay_search, city, preferences, effective_topic, token
+            )
+            while not future.done():
+                elapsed = time.perf_counter() - started
+                frame = spinner_frames[frame_index % len(spinner_frames)]
+                frame_index += 1
+                yield (
+                    f"{frame} **Searching places**\n\nRunning for {elapsed:.1f}s",
+                    gr.update(interactive=False, value="Searching…"),
+                )
+                time.sleep(0.2)
+
+            try:
+                result = future.result()
+            except (RuntimeError, concurrent.futures.CancelledError):
+                logger.exception("Search execution failed")
+                result = "Could not complete the search. Please try again."
+
+        yield result, gr.update(interactive=True, value="Search Places")
+
+    search_btn.click(
+        fn=_start_search,
+        outputs=[output, search_btn],
+        show_progress="hidden",
+    ).then(
+        fn=_do_search,
+        inputs=[
+            city_input,
+            preferences_input,
+            topic_input,
+            topic_toggle,
+            turnstile_token,
+        ],
+        outputs=[output, search_btn],
+        show_progress="hidden",
+    ).then(
+        fn=lambda: gr.update(value=""),
+        outputs=[turnstile_token],
+        js="() => { try { if (window.turnstile) { window.turnstile.reset(); } } catch (e) { console.error('[Turnstile] reset failed', e); } return []; }",
+        show_progress="hidden",
+    )
+
+    gr.HTML(
+        f"""
+        <div class="turnstile-box">
+          <div class="cf-turnstile"
+               data-sitekey="{TURNSTILE_SITE_KEY}"
+               data-callback="onTurnstileSuccess"
+               data-theme="dark"></div>
+        </div>
+        """
+    )
+
+    gr.HTML(
+        "<div class='md-footer'>"
+        "<span>Made with</span>"
+        "<a href='https://ai.google.dev/gemini-api' target='_blank' rel='noopener noreferrer'>Gemini</a>"
+        "<span>&amp;</span>"
+        "<a href='https://gradio.app' target='_blank' rel='noopener noreferrer'>Gradio</a>"
+        "<span class='separator'>·</span>"
+        "<span>Explore the code on</span>"
+        "<a href='https://github.com/xenm/map-me-search' target='_blank' rel='noopener noreferrer' style='font-weight:600;'>GitHub</a>"
+        "</div>"
+    )
+
+
+# ============================================================================
+# Launch
+# ============================================================================
+
+if __name__ == "__main__":
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=7860,
+        share=False,
+        theme=gr.themes.Base(),
+        css=custom_css,
+        head=f"""
+    <meta name="color-scheme" content="dark">
+    <script>
+    // Force dark mode regardless of device preference (iPhones in light mode would
+    // otherwise render Gradio's light theme variables and look wrong).
+    (function forceDarkMode() {{
+        try {{
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+        }} catch (e) {{}}
+    }})();
+    </script>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <script>
+    // Keep forcing the dark class in case Gradio removes it after hydration.
+    function enforceDarkMode() {{
+        if (!document.documentElement.classList.contains('dark')) {{
+            document.documentElement.classList.add('dark');
+        }}
+        document.documentElement.style.colorScheme = 'dark';
+    }}
+
     function applyTextareaAutoGrow() {{
         var textareas = document.querySelectorAll('textarea[data-testid="textbox"]');
         textareas.forEach(function(el) {{
@@ -534,14 +880,25 @@ with gr.Blocks(
     }}
 
     document.addEventListener('DOMContentLoaded', function() {{
+        enforceDarkMode();
         applyMapMeShellTheme();
         applyTextareaAutoGrow();
+        setTimeout(enforceDarkMode, 50);
+        setTimeout(enforceDarkMode, 250);
+        setTimeout(enforceDarkMode, 1000);
         setTimeout(applyMapMeShellTheme, 50);
         setTimeout(applyMapMeShellTheme, 250);
         setTimeout(applyMapMeShellTheme, 1000);
         setTimeout(applyTextareaAutoGrow, 50);
         setTimeout(applyTextareaAutoGrow, 250);
         setTimeout(applyTextareaAutoGrow, 1000);
+
+        // Watch <html> to reassert dark mode if Gradio or the runtime strips it.
+        var htmlObserver = new MutationObserver(enforceDarkMode);
+        htmlObserver.observe(document.documentElement, {{
+            attributes: true,
+            attributeFilter: ['class', 'style']
+        }});
 
         document.addEventListener('input', function(e) {{
             if (e.target && e.target.matches('textarea[data-testid="textbox"]')) {{
@@ -572,136 +929,10 @@ with gr.Blocks(
         }}
     }}
 
-    window.addEventListener('load', applyMapMeShellTheme);
+    window.addEventListener('load', function() {{
+        enforceDarkMode();
+        applyMapMeShellTheme();
+    }});
     </script>
     """,  # noqa: F541
-) as demo:
-    gr.HTML(
-        "<div class='md-title-frame'><h1 class='md-title-simple'>MapMe Search</h1></div>"
-    )
-
-    with gr.Column(elem_classes=["md-card"]):
-        city_input = gr.Textbox(
-            label="Place",
-            placeholder="Enter a location",
-        )
-
-        preferences_input = gr.Textbox(
-            label="Preferences",
-            placeholder="Describe what you want to explore",
-        )
-
-        topic_input = gr.Textbox(
-            label="Topic (Optional)",
-            placeholder="Saves your preferences to this topic",
-        )
-
-        # Hidden Turnstile token (populated by JS callback)
-        turnstile_token = gr.Textbox(
-            elem_id="turnstile-token",
-            label="",
-            container=False,
-            elem_classes=["turnstile-hidden"],
-        )
-
-        search_btn = gr.Button("Search Places", variant="primary", size="lg")
-
-    gr.HTML('<hr class="md-divider">')
-    with gr.Column(elem_classes=["md-output"]):
-        output = gr.Markdown(
-            label="Recommendations",
-            value="*Enter a place and your preferences, then click Search*",
-        )
-
-    # Search button with loading state — disable while running
-    def _start_search():
-        return (
-            gr.update(value="⠋ **Searching places**\n\nRunning for 0.0s"),
-            gr.update(interactive=False, value="Searching…"),
-        )
-
-    def _do_search(city, preferences, topic, token):
-        started = time.perf_counter()
-        spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-        frame_index = 0
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(sync_relay_search, city, preferences, topic, token)
-            while not future.done():
-                elapsed = time.perf_counter() - started
-                frame = spinner_frames[frame_index % len(spinner_frames)]
-                frame_index += 1
-                yield (
-                    f"{frame} **Searching places**\n\nRunning for {elapsed:.1f}s",
-                    gr.update(interactive=False, value="Searching…"),
-                )
-                time.sleep(0.2)
-
-            try:
-                result = future.result()
-            except (RuntimeError, concurrent.futures.CancelledError):
-                logger.exception("Search execution failed")
-                result = "Could not complete the search. Please try again."
-
-        yield result, gr.update(interactive=True, value="Search Places")
-
-    search_btn.click(
-        fn=_start_search,
-        outputs=[output, search_btn],
-        show_progress="hidden",
-    ).then(
-        fn=_do_search,
-        inputs=[city_input, preferences_input, topic_input, turnstile_token],
-        outputs=[output, search_btn],
-        show_progress="hidden",
-    ).then(
-        fn=lambda: gr.update(value=""),
-        outputs=[turnstile_token],
-        js="() => { try { if (window.turnstile) { window.turnstile.reset(); } } catch (e) { console.error('[Turnstile] reset failed', e); } return []; }",
-        show_progress="hidden",
-    )
-
-    gr.HTML('<hr class="md-divider">')
-    gr.HTML(
-        "<p style='font-size:0.72rem;font-weight:600;letter-spacing:0.12em;"
-        "text-transform:uppercase;color:var(--accent-strong);margin:24px 0 8px 0;'>Examples</p>"
-    )
-    gr.Examples(
-        examples=[
-            ["Paris", "coffee shops, art museums", "travel-2024"],
-            ["Tokyo", "ramen, anime, nightlife", "japan-trip"],
-            ["New York", "jazz clubs, pizza, rooftop bars", ""],
-            ["Barcelona", "tapas, beaches, architecture", "summer-vacation"],
-        ],
-        inputs=[city_input, preferences_input, topic_input],
-    )
-    gr.HTML(
-        f"""
-        <div class="turnstile-box">
-          <div class="cf-turnstile"
-               data-sitekey="{TURNSTILE_SITE_KEY}"
-               data-callback="onTurnstileSuccess"
-               data-theme="dark"></div>
-        </div>
-        """
-    )
-
-    gr.HTML(
-        "<div style='font-size:0.76rem;color:var(--text-muted);text-align:center;padding:10px 0 10px 0;'>"
-        "Made with <a href='https://ai.google.dev/gemini-api' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);'>Gemini</a>"
-        " &amp; <a href='https://gradio.app' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);'>Gradio</a>"
-        "Explore the code on "
-        "<a href='https://github.com/xenm/map-me-search' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);font-weight:600;'>"
-        "GitHub ↗</a></div>"
-    )
-
-
-# ============================================================================
-# Launch
-# ============================================================================
-
-if __name__ == "__main__":
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=False,
     )
