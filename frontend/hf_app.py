@@ -142,6 +142,9 @@ body, .gradio-container, .gradio-container * {
 html,
 body,
 #root {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background:
         var(--page-glow),
         radial-gradient(circle at 20% 18%, rgba(93, 228, 255, 0.08), transparent 22%),
@@ -178,13 +181,14 @@ footer {
 }
 
 .gradio-container {
-    max-width: 860px !important;
-    margin: auto !important;
+    width: clamp(280px, 100%, 860px) !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
     background: linear-gradient(180deg, rgba(6, 12, 22, 0.78) 0%, rgba(7, 10, 16, 0.80) 100%) !important;
     border: 1px solid rgba(93, 228, 255, 0.14) !important;
     border-radius: 14px !important;
     box-shadow: 0 14px 48px rgba(0,0,0,0.40), 0 0 24px rgba(31,200,255,0.10) !important;
-    padding: 8px 20px 18px 20px !important;
+    padding: 12px 4% 18px 4% !important;
 }
 
 .md-title-simple {
@@ -336,6 +340,12 @@ footer {
 .gradio-container textarea {
     resize: none !important;
     overflow-y: hidden !important;
+}
+
+.gradio-container input,
+.gradio-container textarea {
+    width: 100% !important;
+    box-sizing: border-box !important;
 }
 
 /* === Block containers === */
@@ -570,6 +580,40 @@ footer {
     opacity: 0 !important;
 }
 
+/* === Footer === */
+.md-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    font-size: 0.76rem !important;
+    color: var(--text-muted) !important;
+    padding: 4px 0 !important;
+    line-height: 1.5 !important;
+    flex-wrap: wrap !important;
+    white-space: normal !important;
+}
+
+.md-footer span {
+    white-space: normal !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: var(--text-muted) !important;
+}
+
+.md-footer a {
+    white-space: normal !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: var(--accent-strong) !important;
+    text-decoration: none;
+    transition: opacity 0.15s ease;
+}
+
+.md-footer a:hover {
+    opacity: 0.82;
+}
+
 footer,
 .built-with,
 .settings,
@@ -601,11 +645,15 @@ with gr.Blocks(
         city_input = gr.Textbox(
             label="Place",
             placeholder="Enter a location",
+            lines=1,
+            max_lines=2,
         )
 
         preferences_input = gr.Textbox(
             label="Preferences",
             placeholder="Describe what you want to explore",
+            lines=1,
+            max_lines=4,
         )
 
         topic_toggle = gr.Checkbox(
@@ -620,6 +668,8 @@ with gr.Blocks(
             placeholder="Type a common word or unique string",
             interactive=False,
             visible=False,
+            lines=1,
+            max_lines=2,
         )
 
         topic_help = gr.HTML(
@@ -729,12 +779,15 @@ with gr.Blocks(
     )
 
     gr.HTML(
-        "<div style='font-size:0.76rem;color:var(--text-muted);text-align:center;padding:10px 0 10px 0;'>"
-        "Made with <a href='https://ai.google.dev/gemini-api' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);'>Gemini</a>"
-        " &amp; <a href='https://gradio.app' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);'>Gradio</a> · "
-        "Explore the code on "
-        "<a href='https://github.com/xenm/map-me-search' target='_blank' rel='noopener noreferrer' style='color:var(--accent-strong);font-weight:600;'>"
-        "GitHub ↗</a></div>"
+        "<div class='md-footer'>"
+        "<span>Made with</span>"
+        "<a href='https://ai.google.dev/gemini-api' target='_blank' rel='noopener noreferrer'>Gemini</a>"
+        "<span>&amp;</span>"
+        "<a href='https://gradio.app' target='_blank' rel='noopener noreferrer'>Gradio</a>"
+        "<span class='separator'>·</span>"
+        "<span>Explore the code on</span>"
+        "<a href='https://github.com/xenm/map-me-search' target='_blank' rel='noopener noreferrer' style='font-weight:600;'>GitHub ↗</a>"
+        "</div>"
     )
 
 
