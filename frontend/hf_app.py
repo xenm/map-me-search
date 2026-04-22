@@ -390,38 +390,7 @@ footer {
 }
 
 .md-output [data-testid="status-tracker"] {
-    position: static !important;
-    display: block !important;
-    width: 100% !important;
-    min-height: 34px !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
-    text-align: center !important;
-}
-
-.md-output [data-testid="status-tracker"] > * {
-    display: block !important;
-    text-align: center !important;
-    width: 100% !important;
-}
-
-.md-output [data-testid="status-tracker"] * {
-    white-space: normal !important;
-    overflow-wrap: anywhere !important;
-    color: rgba(228, 246, 255, 0.92) !important;
-    opacity: 1 !important;
-    font-size: 1rem !important;
-    line-height: 1.35 !important;
-}
-
-.md-output [data-testid="status-tracker"] svg,
-.md-output [data-testid="status-tracker"] img {
-    width: 1.1rem !important;
-    height: 1.1rem !important;
-    max-width: none !important;
-    display: inline-block !important;
-    vertical-align: middle !important;
-    margin: 0 0.35rem !important;
+    display: none !important;
 }
 
 .md-output p,
@@ -445,6 +414,17 @@ footer {
 
 .md-output .gr-markdown {
     margin: 0 !important;
+}
+
+.md-output > div,
+.md-output .wrap,
+.md-output .block,
+.md-output .prose,
+.md-output .prose > * {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
 }
 
 /* === Divider === */
