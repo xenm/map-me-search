@@ -592,115 +592,6 @@ TOGGLE_TOPIC_JS = """
 # Build the Gradio interface
 with gr.Blocks(
     title="AI Places Search",
-    theme=gr.themes.Base(),
-    css=custom_css,
-    head=f"""
-    <meta name="color-scheme" content="dark">
-    <script>
-    // Force dark mode regardless of device preference (iPhones in light mode would
-    // otherwise render Gradio's light theme variables and look wrong).
-    (function forceDarkMode() {{
-        try {{
-            document.documentElement.classList.add('dark');
-            document.documentElement.style.colorScheme = 'dark';
-        }} catch (e) {{}}
-    }})();
-    </script>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-    <script>
-    // Keep forcing the dark class in case Gradio removes it after hydration.
-    function enforceDarkMode() {{
-        if (!document.documentElement.classList.contains('dark')) {{
-            document.documentElement.classList.add('dark');
-        }}
-        document.documentElement.style.colorScheme = 'dark';
-    }}
-
-    function applyTextareaAutoGrow() {{
-        var textareas = document.querySelectorAll('textarea[data-testid="textbox"]');
-        textareas.forEach(function(el) {{
-            if (el.closest('#turnstile-token')) return;
-            el.style.setProperty('resize', 'none', 'important');
-            el.style.setProperty('overflow-y', 'hidden', 'important');
-            el.style.height = 'auto';
-            var next = Math.max(42, el.scrollHeight);
-            el.style.height = next + 'px';
-        }});
-    }}
-
-    function applyMapMeShellTheme() {{
-        var bg = 'radial-gradient(circle at top center, rgba(31, 200, 255, 0.18), transparent 38%), radial-gradient(circle at 20% 18%, rgba(93, 228, 255, 0.08), transparent 22%), linear-gradient(180deg, #0b1220 0%, #07090f 100%)';
-        var selectors = ['html', 'body', '#root'];
-        selectors.forEach(function(selector) {{
-            document.querySelectorAll(selector).forEach(function(el) {{
-                el.style.setProperty('background', bg, 'important');
-                el.style.setProperty('background-color', '#07090f', 'important');
-                el.style.setProperty('color', '#e4f6ff', 'important');
-                el.style.setProperty('min-height', '100vh', 'important');
-            }});
-        }});
-        document.querySelectorAll('.wrap, .contain, .main, .app').forEach(function(el) {{
-            el.style.setProperty('background', 'transparent', 'important');
-            el.style.setProperty('background-color', 'transparent', 'important');
-        }});
-    }}
-
-    document.addEventListener('DOMContentLoaded', function() {{
-        enforceDarkMode();
-        applyMapMeShellTheme();
-        applyTextareaAutoGrow();
-        setTimeout(enforceDarkMode, 50);
-        setTimeout(enforceDarkMode, 250);
-        setTimeout(enforceDarkMode, 1000);
-        setTimeout(applyMapMeShellTheme, 50);
-        setTimeout(applyMapMeShellTheme, 250);
-        setTimeout(applyMapMeShellTheme, 1000);
-        setTimeout(applyTextareaAutoGrow, 50);
-        setTimeout(applyTextareaAutoGrow, 250);
-        setTimeout(applyTextareaAutoGrow, 1000);
-
-        // Watch <html> to reassert dark mode if Gradio or the runtime strips it.
-        var htmlObserver = new MutationObserver(enforceDarkMode);
-        htmlObserver.observe(document.documentElement, {{
-            attributes: true,
-            attributeFilter: ['class', 'style']
-        }});
-
-        document.addEventListener('input', function(e) {{
-            if (e.target && e.target.matches('textarea[data-testid="textbox"]')) {{
-                applyTextareaAutoGrow();
-            }}
-        }});
-
-        var mo = new MutationObserver(function() {{
-            applyTextareaAutoGrow();
-        }});
-        mo.observe(document.body, {{ childList: true, subtree: true }});
-    }});
-
-    function onTurnstileSuccess(token) {{
-        var el = document.querySelector('#turnstile-token textarea')
-              || document.querySelector('#turnstile-token input')
-              || document.querySelector('#turnstile-token-wrapper textarea')
-              || document.querySelector('#turnstile-token-wrapper input');
-        if (el) {{
-            var proto = el.tagName === 'TEXTAREA'
-                ? window.HTMLTextAreaElement.prototype
-                : window.HTMLInputElement.prototype;
-            var nset = Object.getOwnPropertyDescriptor(proto, 'value').set;
-            nset.call(el, token);
-            el.dispatchEvent(new Event('input', {{bubbles: true}}));
-        }} else {{
-            console.error('[Turnstile] could not find token input element');
-        }}
-    }}
-
-    window.addEventListener('load', function() {{
-        enforceDarkMode();
-        applyMapMeShellTheme();
-    }});
-    </script>
-    """,  # noqa: F541
 ) as demo:
     gr.HTML(
         "<div class='md-title-frame'><h1 class='md-title-simple'>MapMe Search</h1></div>"
@@ -856,4 +747,113 @@ if __name__ == "__main__":
         server_name="0.0.0.0",
         server_port=7860,
         share=False,
+        theme=gr.themes.Base(),
+        css=custom_css,
+        head=f"""
+    <meta name="color-scheme" content="dark">
+    <script>
+    // Force dark mode regardless of device preference (iPhones in light mode would
+    // otherwise render Gradio's light theme variables and look wrong).
+    (function forceDarkMode() {{
+        try {{
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+        }} catch (e) {{}}
+    }})();
+    </script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script>
+    // Keep forcing the dark class in case Gradio removes it after hydration.
+    function enforceDarkMode() {{
+        if (!document.documentElement.classList.contains('dark')) {{
+            document.documentElement.classList.add('dark');
+        }}
+        document.documentElement.style.colorScheme = 'dark';
+    }}
+
+    function applyTextareaAutoGrow() {{
+        var textareas = document.querySelectorAll('textarea[data-testid="textbox"]');
+        textareas.forEach(function(el) {{
+            if (el.closest('#turnstile-token')) return;
+            el.style.setProperty('resize', 'none', 'important');
+            el.style.setProperty('overflow-y', 'hidden', 'important');
+            el.style.height = 'auto';
+            var next = Math.max(42, el.scrollHeight);
+            el.style.height = next + 'px';
+        }});
+    }}
+
+    function applyMapMeShellTheme() {{
+        var bg = 'radial-gradient(circle at top center, rgba(31, 200, 255, 0.18), transparent 38%), radial-gradient(circle at 20% 18%, rgba(93, 228, 255, 0.08), transparent 22%), linear-gradient(180deg, #0b1220 0%, #07090f 100%)';
+        var selectors = ['html', 'body', '#root'];
+        selectors.forEach(function(selector) {{
+            document.querySelectorAll(selector).forEach(function(el) {{
+                el.style.setProperty('background', bg, 'important');
+                el.style.setProperty('background-color', '#07090f', 'important');
+                el.style.setProperty('color', '#e4f6ff', 'important');
+                el.style.setProperty('min-height', '100vh', 'important');
+            }});
+        }});
+        document.querySelectorAll('.wrap, .contain, .main, .app').forEach(function(el) {{
+            el.style.setProperty('background', 'transparent', 'important');
+            el.style.setProperty('background-color', 'transparent', 'important');
+        }});
+    }}
+
+    document.addEventListener('DOMContentLoaded', function() {{
+        enforceDarkMode();
+        applyMapMeShellTheme();
+        applyTextareaAutoGrow();
+        setTimeout(enforceDarkMode, 50);
+        setTimeout(enforceDarkMode, 250);
+        setTimeout(enforceDarkMode, 1000);
+        setTimeout(applyMapMeShellTheme, 50);
+        setTimeout(applyMapMeShellTheme, 250);
+        setTimeout(applyMapMeShellTheme, 1000);
+        setTimeout(applyTextareaAutoGrow, 50);
+        setTimeout(applyTextareaAutoGrow, 250);
+        setTimeout(applyTextareaAutoGrow, 1000);
+
+        // Watch <html> to reassert dark mode if Gradio or the runtime strips it.
+        var htmlObserver = new MutationObserver(enforceDarkMode);
+        htmlObserver.observe(document.documentElement, {{
+            attributes: true,
+            attributeFilter: ['class', 'style']
+        }});
+
+        document.addEventListener('input', function(e) {{
+            if (e.target && e.target.matches('textarea[data-testid="textbox"]')) {{
+                applyTextareaAutoGrow();
+            }}
+        }});
+
+        var mo = new MutationObserver(function() {{
+            applyTextareaAutoGrow();
+        }});
+        mo.observe(document.body, {{ childList: true, subtree: true }});
+    }});
+
+    function onTurnstileSuccess(token) {{
+        var el = document.querySelector('#turnstile-token textarea')
+              || document.querySelector('#turnstile-token input')
+              || document.querySelector('#turnstile-token-wrapper textarea')
+              || document.querySelector('#turnstile-token-wrapper input');
+        if (el) {{
+            var proto = el.tagName === 'TEXTAREA'
+                ? window.HTMLTextAreaElement.prototype
+                : window.HTMLInputElement.prototype;
+            var nset = Object.getOwnPropertyDescriptor(proto, 'value').set;
+            nset.call(el, token);
+            el.dispatchEvent(new Event('input', {{bubbles: true}}));
+        }} else {{
+            console.error('[Turnstile] could not find token input element');
+        }}
+    }}
+
+    window.addEventListener('load', function() {{
+        enforceDarkMode();
+        applyMapMeShellTheme();
+    }});
+    </script>
+    """,  # noqa: F541
     )
