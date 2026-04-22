@@ -774,7 +774,7 @@ with gr.Blocks(
         )
 
     def _do_search(city, preferences, topic, topic_enabled, token):
-        effective_topic = (topic.strip().lower() if topic_enabled else "")
+        effective_topic = topic.strip().lower() if topic_enabled else ""
         started = time.perf_counter()
         spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
         frame_index = 0
@@ -806,7 +806,13 @@ with gr.Blocks(
         show_progress="hidden",
     ).then(
         fn=_do_search,
-        inputs=[city_input, preferences_input, topic_input, topic_toggle, turnstile_token],
+        inputs=[
+            city_input,
+            preferences_input,
+            topic_input,
+            topic_toggle,
+            turnstile_token,
+        ],
         outputs=[output, search_btn],
         show_progress="hidden",
     ).then(

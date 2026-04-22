@@ -225,9 +225,7 @@ class TestTopicPreferencesIntegration:
 
         async with _session_factory() as session:
             result = await session.execute(
-                select(TopicPreference).where(
-                    TopicPreference.topic == "new-topic"
-                )
+                select(TopicPreference).where(TopicPreference.topic == "new-topic")
             )
             row = result.scalar_one()
         assert row.topic == "new-topic"
