@@ -1,5 +1,5 @@
 google-adk>=1.31.1
-google-genai>=0.3.0
+google-genai>=1.73.1
 python-dotenv>=1.2.2
 protobuf>=4.0.0
 fastapi>=0.136.0
