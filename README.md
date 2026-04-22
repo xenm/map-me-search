@@ -83,7 +83,7 @@ The architecture assumes public source code and treats every boundary as untrust
 
 All session state is in-memory for the duration of a single request. The only thing written to PostgreSQL is accumulated user preferences per named topic.
 
-- **With topic** → before the LLM call, past preferences for that topic are read from `topic_preferences` and injected into the ResearchAgent prompt as taste context. After a successful response, the new preference is appended as a bullet point. Every 10th update triggers an LLM summarisation pass that compresses the list back to ≤ 8 bullets.
+- **With topic** → before the LLM call, past preferences for that topic are read from `topic_preferences` and injected into the ResearchAgent prompt as taste context. After a successful response, the new preference is appended as a bullet point. Every 10th update triggers an LLM summarisation pass that merges duplicates and condenses the list to keep only the most specific and useful preferences.
 - **Without topic** → fully anonymous; nothing is read from or written to the database.
 
 The table has three columns: `topic` (PK), `preferences` (accumulated bullet points), `version` (integer, incremented per update).
