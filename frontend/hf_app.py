@@ -427,12 +427,6 @@ footer {
     padding-bottom: 0 !important;
 }
 
-/* === Divider === */
-.md-divider {
-    border: none;
-    border-top: 1px solid var(--divider);
-    margin: 24px 0;
-}
 
 /* === Examples table === */
 .gr-samples-table td {
@@ -766,7 +760,6 @@ with gr.Blocks(
 
         search_btn = gr.Button("Search Places", variant="primary", size="lg")
 
-    gr.HTML('<hr class="md-divider">')
     with gr.Column(elem_classes=["md-output"]):
         output = gr.Markdown(
             label="Recommendations",
@@ -823,7 +816,6 @@ with gr.Blocks(
         show_progress="hidden",
     )
 
-    gr.HTML('<hr class="md-divider">')
     gr.HTML(
         f"""
         <div class="turnstile-box">
