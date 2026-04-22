@@ -1,11 +1,7 @@
 name: Deploy Frontend to Hugging Face
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/deploy-hf-app.yaml'
+  workflow_call:
   workflow_dispatch:
 
 concurrency:
@@ -13,12 +9,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  run-ci:
-    name: Run CI
-    uses: ./.github/workflows/ci.yaml
-    permissions:
-      contents: read
-
   # ============================================================================
   # Deploy the Mini-Frontend to Hugging Face Spaces
   # ============================================================================
@@ -27,7 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
-    needs: run-ci
     permissions:
       contents: read
 

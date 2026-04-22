@@ -1,12 +1,7 @@
 name: Deploy Agent API to Cloud Run
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'agent/**'
-      - 'Dockerfile'
-      - '.github/workflows/deploy-agent-api.yaml'
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -18,10 +13,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  run-ci:
-    name: Run CI
-    uses: ./.github/workflows/ci.yaml
-
   # ============================================================================
   # Build, push, and deploy the Agent API to Cloud Run
   # ============================================================================
@@ -30,7 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
-    needs: run-ci
     permissions:
       contents: 'read'
       id-token: 'write'
