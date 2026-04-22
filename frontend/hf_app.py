@@ -812,7 +812,7 @@ with gr.Blocks(
         "<a href='https://gradio.app' target='_blank' rel='noopener noreferrer'>Gradio</a>"
         "<span class='separator'>·</span>"
         "<span>Explore the code on</span>"
-        "<a href='https://github.com/xenm/map-me-search' target='_blank' rel='noopener noreferrer' style='font-weight:600;'>GitHub ↗</a>"
+        "<a href='https://github.com/xenm/map-me-search' target='_blank' rel='noopener noreferrer' style='font-weight:600;'>GitHub</a>"
         "</div>"
     )
 
