@@ -580,6 +580,15 @@ footer,
 }
 """
 
+TOGGLE_TOPIC_JS = """
+(enabled) => {
+    return [
+        { __type__: "update", visible: enabled, interactive: enabled },
+        { __type__: "update", visible: enabled }
+    ];
+}
+"""
+
 # Build the Gradio interface
 with gr.Blocks(
     title="AI Places Search",
@@ -722,7 +731,7 @@ with gr.Blocks(
             visible=False,
         )
 
-        topic_help = gr.Markdown(
+        topic_help = gr.HTML(
             value=(
                 "<div style='font-size:0.82rem;line-height:1.6;color:var(--text-secondary);"
                 "border-left:2px solid var(--accent-soft);padding:10px 14px;margin-top:4px;"
@@ -737,16 +746,11 @@ with gr.Blocks(
             visible=False,
         )
 
-        def _toggle_topic(enabled: bool):
-            return (
-                gr.update(interactive=enabled, visible=enabled),
-                gr.update(visible=enabled),
-            )
-
         topic_toggle.change(
-            fn=_toggle_topic,
+            fn=None,
             inputs=[topic_toggle],
             outputs=[topic_input, topic_help],
+            js=TOGGLE_TOPIC_JS,
             show_progress="hidden",
         )
 
