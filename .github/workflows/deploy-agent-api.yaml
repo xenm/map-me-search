@@ -4,10 +4,6 @@ on:
   workflow_call:
   workflow_dispatch:
 
-permissions:
-  actions: read
-  contents: read
-
 concurrency:
   group: deploy-agent-api-${{ github.ref }}
   cancel-in-progress: false
