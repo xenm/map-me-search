@@ -127,19 +127,20 @@ class TestBuildSearchPrompt:
         result = _build_search_prompt("Paris", "museums", "")
         assert "Paris" in result
         assert "museums" in result
-        assert "accumulated preferences" not in result
+        assert "Taste hints" not in result
 
     def test_with_past_preferences_injects_context(self):
         past = "- coffee shops\n- art galleries"
         result = _build_search_prompt("Berlin", "nightlife", past)
         assert "Berlin" in result
         assert "nightlife" in result
-        assert "accumulated preferences" in result
+        assert "Taste hints" in result
         assert past in result
 
-    def test_no_past_preferences_is_single_sentence(self):
+    def test_no_past_preferences_omits_hints(self):
         result = _build_search_prompt("Rome", "pizza", "")
-        assert "\n\n" not in result
+        assert "Taste hints" not in result
+        assert "earlier searches" not in result
 
     def test_with_past_preferences_has_separator(self):
         result = _build_search_prompt("Tokyo", "ramen", "- ramen bars")
