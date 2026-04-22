@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   # ============================================================================
-  # Build, push, and deploy the Agent API to Cloud Run
+  # Build, push, and deploy MapMe Search Agent API to Cloud Run
   # ============================================================================
   deploy-cloud-run:
     name: Deploy Agent API to Cloud Run

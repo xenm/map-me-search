@@ -1,8 +1,10 @@
 # MapMe Search
 
 [![A2AS-CERTIFIED](https://img.shields.io/badge/A2AS-CERTIFIED-f3af80)](https://www.a2as.org/certified/agents/xenm/map-me-search?utm_source=github&utm_medium=pull_request)
-[![Deploy API](https://github.com/xenm/map-me-search/actions/workflows/deploy-agent-api.yaml/badge.svg?event=push)](https://github.com/xenm/map-me-search/actions/workflows/deploy-agent-api.yaml)
-[![Deploy Frontend](https://github.com/xenm/map-me-search/actions/workflows/deploy-hf-app.yaml/badge.svg?event=push)](https://github.com/xenm/map-me-search/actions/workflows/deploy-hf-app.yaml)
+[![Qodana Code Quality](https://github.com/xenm/map-me-search/actions/workflows/qodana_code_quality.yml/badge.svg)](https://github.com/xenm/map-me-search/actions/workflows/qodana_code_quality.yml)
+[![CI / CD](https://github.com/xenm/map-me-search/actions/workflows/ci-cd.yaml/badge.svg)](https://github.com/xenm/map-me-search/actions/workflows/ci-cd.yaml)
+[![Hugging Face](https://img.shields.io/badge/🤗_Hugging_Face-Live_Frontend-FFD21E.svg)](https://huggingface.co/spaces/xenmai/map-me-search)
+[![Google Cloud](https://img.shields.io/badge/Google_Cloud-Live_API-4285F4.svg?logo=googlecloud&logoColor=white)](https://map-me-search-375772926068.asia-southeast1.run.app/health)
 
 AI-powered place recommendations using a multi-agent pipeline on Google ADK. You give it a city and your interests; three specialised agents — research, filter, and format — work in sequence to return ranked suggestions.
 
