@@ -1,4 +1,4 @@
 python-dotenv>=1.2.2
-httpx>=0.27.0
+httpx>=0.28.1
 audioop-lts<1.0; python_version >= "3.13"
 huggingface_hub<2.0.0
