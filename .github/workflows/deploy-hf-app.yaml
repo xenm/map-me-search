@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   # ============================================================================
-  # Deploy the Mini-Frontend to Hugging Face Spaces
+  # Deploy MapMe Search Mini-Frontend to Hugging Face Spaces
   # ============================================================================
   deploy-huggingface:
     name: Deploy Frontend to Hugging Face
